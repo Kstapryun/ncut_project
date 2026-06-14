@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoPet — 加密寵物養成</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Nunito+Sans:wght@400;600&display=swap');
+
+:root {
+  --bg: #1a0d2e;
+  --bg2: #251340;
+  --bg3: #2e1a4a;
+  --card: rgba(255,255,255,0.06);
+  --card-border: rgba(255,255,255,0.12);
+  --accent: #c084fc;
+  --accent2: #a855f7;
+  --gold: #fbbf24;
+  --green: #34d399;
+  --red: #f87171;
+  --text: #f0e8ff;
+  --text2: #c4aee8;
+  --text3: #8b6fb0;
+  --font: 'Nunito', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Stars background */
+.stars {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(1px 1px at 15% 20%, rgba(255,255,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 35% 60%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 55% 15%, rgba(255,255,255,0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 70%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 80%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 85%, rgba(255,255,255,0.5) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 90% 25%, rgba(255,255,255,0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 10% 50%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 45% 35%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 78% 55%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 20% 10%, rgba(255,255,255,0.5) 0%, transparent 100%);
+}
+
+.nebula {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 30%, rgba(168,85,247,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 80% 70%, rgba(99,102,241,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 60% 20%, rgba(192,132,252,0.05) 0%, transparent 70%);
+}
+
+/* Layout */
+.app { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+/* Header */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(26,13,46,0.9);
+  border-bottom: 1px solid var(--card-border);
+  backdrop-filter: blur(10px);
+  position: sticky; top: 0; z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 10px; }
+.logo { font-size: 20px; font-weight: 900; color: var(--accent); letter-spacing: -0.5px; }
+.logo span { color: var(--gold); }
+.tagline { font-size: 11px; color: var(--text3); }
+
+.header-right { display: flex; align-items: center; gap: 10px; }
+.balance-pill {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 20px; padding: 6px 14px;
+  font-size: 13px; font-weight: 700; color: var(--gold);
+  display: flex; align-items: center; gap: 5px;
+}
+.balance-pill::before { content: '◎'; font-size: 12px; }
+
+.btn-icon {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--card); border: 1px solid var(--card-border);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: all 0.2s; color: var(--text);
+  position: relative;
+}
+.btn-icon:hover { background: var(--card-border); transform: scale(1.05); }
+
+/* Game scene */
+.scene-wrap { flex: 1; position: relative; overflow: hidden; min-height: 420px; }
+
+.bg-img {
+  position: absolute; inset: 0;
+  background-image: url('https://i.postimg.cc/J0cjXjSV/Gemini-Generated-Image-quph8qquph8qquph.png');
+  background-size: cover; background-position: center;
+  opacity: 0.35;
+}
+
+.scene { position: absolute; inset: 0; }
+
+/* Ground */
+.ground {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+  background: linear-gradient(to top, rgba(42,18,70,0.9), transparent);
+}
+
+/* Pet */
+.pet {
+  position: absolute;
+  cursor: pointer;
+  user-select: none;
+  display: flex; flex-direction: column; align-items: center;
+  transition: transform 0.15s;
+}
+.pet:hover { transform: scale(1.08); }
+.pet:hover .pet-body { filter: brightness(1.1); }
+
+.status-bar-container {
+  width: 80px; margin-bottom: 4px;
+  background: rgba(0,0,0,0.5); border-radius: 10px;
+  padding: 3px 5px;
+}
+.status-bar-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+.status-bar-sym { font-size: 9px; font-weight: 700; color: #fff; }
+.status-bar-pnl { font-size: 9px; font-weight: 700; }
+.status-bar-pnl.up { color: var(--green); }
+.status-bar-pnl.dn { color: var(--red); }
+.status-bar-track { height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; overflow: hidden; }
+.status-bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease, background 1s ease; }
+
+.pet-body { transition: all 0.3s; }
+
+.pet-name {
+  font-size: 10px; font-weight: 700; color: #fff;
+  background: rgba(0,0,0,0.55); border-radius: 10px;
+  padding: 2px 8px; margin-top: 3px;
+  white-space: nowrap;
+}
+
+.stage-badge {
+  font-size: 9px; color: var(--accent);
+  background: rgba(168,85,247,0.2);
+  border-radius: 8px; padding: 1px 6px; margin-top: 2px;
+}
+
+/* Floating coins / effects */
+.float-effect {
+  position: absolute; pointer-events: none;
+  font-size: 13px; font-weight: 700;
+  animation: floatUp 1.5s ease-out forwards;
+}
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-50px); }
+}
+
+.sparkle {
+  position: absolute; pointer-events: none;
+  animation: sparkleAnim 0.6s ease-out forwards;
+}
+@keyframes sparkleAnim {
+  0% { opacity: 1; transform: scale(0); }
+  50% { opacity: 1; transform: scale(1.2); }
+  100% { opacity: 0; transform: scale(0.5); }
+}
+
+/* Bottom portfolio bar */
+.portfolio-bar {
+  background: rgba(26,13,46,0.95);
+  border-top: 1px solid var(--card-border);
+  padding: 10px 16px;
+  display: flex; gap: 8px; overflow-x: auto;
+  scrollbar-width: none; backdrop-filter: blur(10px);
+}
+.portfolio-bar::-webkit-scrollbar { display: none; }
+
+.port-chip {
+  flex-shrink: 0;
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 12px; padding: 8px 12px;
+  cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 8px; min-width: 130px;
+}
+.port-chip:hover { background: rgba(255,255,255,0.1); border-color: var(--accent); }
+.port-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.port-chip-info { flex: 1; }
+.port-chip-sym { font-size: 12px; font-weight: 800; color: var(--text); }
+.port-chip-name { font-size: 10px; color: var(--text3); }
+.port-chip-pnl { font-size: 12px; font-weight: 700; }
+.port-chip-pnl.up { color: var(--green); }
+.port-chip-pnl.dn { color: var(--red); }
+
+.port-add {
+  flex-shrink: 0; width: 52px; height: 52px; border-radius: 12px;
+  background: rgba(168,85,247,0.15); border: 1px dashed var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 22px; color: var(--accent);
+  transition: all 0.2s; align-self: center;
+}
+.port-add:hover { background: rgba(168,85,247,0.25); transform: scale(1.05); }
+
+/* Modals */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(10,5,20,0.75); z-index: 200;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(6px);
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: #1e1035; border: 1px solid var(--card-border);
+  border-radius: 24px; width: 90%; max-width: 380px;
+  padding: 24px; position: relative;
+  animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.88) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--card); border: 1px solid var(--card-border);
+  cursor: pointer; color: var(--text2); font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.modal-close:hover { background: rgba(255,255,255,0.15); }
+
+.modal-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; }
+
+/* Pet detail modal */
+.pet-modal-header {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+}
+.pet-modal-svg { flex-shrink: 0; }
+.pet-modal-meta { flex: 1; }
+.pet-modal-name { font-size: 18px; font-weight: 800; color: var(--text); }
+.pet-modal-stage { font-size: 12px; color: var(--accent); margin-top: 2px; }
+.pet-modal-coin { font-size: 12px; color: var(--text3); }
+
+.stats-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-bottom: 14px;
+}
+.stat-box {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 12px; padding: 10px 12px;
+}
+.stat-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
+.stat-val { font-size: 14px; font-weight: 700; color: var(--text); }
+.stat-val.up { color: var(--green); }
+.stat-val.dn { color: var(--red); }
+
+.evo-progress { margin-bottom: 14px; }
+.evo-label { font-size: 11px; color: var(--text3); margin-bottom: 6px; display: flex; justify-content: space-between; }
+.evo-track { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+.evo-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--gold)); border-radius: 4px; transition: width 1s ease; }
+
+.modal-info-box {
+  background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2);
+  border-radius: 12px; padding: 10px 12px; margin-bottom: 14px;
+  font-size: 12px; color: var(--text2); line-height: 1.6;
+}
+
+.modal-btns { display: flex; gap: 8px; }
+.modal-btn {
+  flex: 1; padding: 11px; border-radius: 12px;
+  border: 1px solid var(--card-border); background: var(--card);
+  color: var(--text); font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: var(--font); transition: all 0.15s;
+}
+.modal-btn:hover { background: rgba(255,255,255,0.1); }
+.modal-btn.sell { border-color: rgba(248,113,113,0.3); color: var(--red); background: rgba(248,113,113,0.08); }
+.modal-btn.sell:hover { background: rgba(248,113,113,0.15); }
+
+/* Buy modal */
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 12px; color: var(--text3); margin-bottom: 6px; display: block; }
+.form-input {
+  width: 100%; background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 10px; padding: 10px 14px;
+  color: var(--text); font-family: var(--font); font-size: 14px;
+  outline: none; transition: border-color 0.15s;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-input::placeholder { color: var(--text3); }
+
+.coin-selector { display: flex; gap: 8px; flex-wrap: wrap; }
+.coin-btn {
+  padding: 6px 14px; border-radius: 20px;
+  border: 1px solid var(--card-border); background: var(--card);
+  color: var(--text2); font-size: 12px; font-weight: 700;
+  cursor: pointer; font-family: var(--font); transition: all 0.15s;
+}
+.coin-btn.selected { border-color: var(--accent); background: rgba(168,85,247,0.2); color: var(--accent); }
+
+.form-submit {
+  width: 100%; padding: 13px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent2), #7c3aed);
+  border: none; color: #fff; font-size: 15px; font-weight: 800;
+  cursor: pointer; font-family: var(--font); transition: all 0.2s;
+  margin-top: 4px;
+}
+.form-submit:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.form-submit:active { transform: translateY(0); }
+
+/* Sell modal */
+.sell-select {
+  width: 100%; background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 10px; padding: 10px 14px;
+  color: var(--text); font-family: var(--font); font-size: 14px;
+  outline: none; appearance: none;
+}
+
+/* Dex modal */
+.dex-modal { max-width: 440px; }
+.dex-stats-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.dex-stat { flex: 1; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 8px 10px; text-align: center; }
+.dex-stat-n { font-size: 20px; font-weight: 800; color: var(--accent); }
+.dex-stat-l { font-size: 10px; color: var(--text3); }
+
+.dex-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 320px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--card-border) transparent; }
+.dex-cell {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: 12px; padding: 8px 4px;
+  text-align: center; cursor: pointer; transition: all 0.15s;
+  position: relative;
+}
+.dex-cell:hover:not(.locked) { border-color: var(--accent); transform: scale(1.04); }
+.dex-cell.locked { opacity: 0.4; cursor: default; }
+.dex-rarity {
+  position: absolute; top: 4px; right: 4px;
+  width: 7px; height: 7px; border-radius: 50%;
+}
+.r-common { background: #6ee7b7; }
+.r-rare { background: #fbbf24; }
+.r-epic { background: #c084fc; }
+.r-secret { background: #f87171; }
+.dex-num { font-size: 8px; color: var(--text3); margin-bottom: 2px; }
+.dex-name { font-size: 9px; font-weight: 700; color: var(--text); margin-top: 3px; }
+.dex-sub { font-size: 8px; color: var(--text3); }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #2d1b4e; border: 1px solid var(--accent);
+  border-radius: 20px; padding: 10px 20px;
+  font-size: 13px; font-weight: 700; color: var(--text);
+  opacity: 0; pointer-events: none;
+  transition: all 0.3s; z-index: 300; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Evolution flash */
+.evo-flash {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(192,132,252,0.25);
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.3s;
+}
+.evo-flash.show { opacity: 1; }
+
+/* Market ticker */
+.ticker {
+  position: fixed; top: 62px; left: 0; right: 0; z-index: 90;
+  background: rgba(26,13,46,0.85); border-bottom: 1px solid var(--card-border);
+  padding: 5px 0; overflow: hidden; backdrop-filter: blur(6px);
+}
+.ticker-inner {
+  display: flex; gap: 28px; white-space: nowrap;
+  animation: tickerScroll 30s linear infinite;
+}
+@keyframes tickerScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.ticker-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
+.ticker-sym { color: var(--text2); }
+.ticker-price { color: var(--text); }
+.ticker-chg.up { color: var(--green); }
+.ticker-chg.dn { color: var(--red); }
+
+/* Responsive */
+@media (max-width: 480px) {
+  .scene-wrap { min-height: 360px; }
+  .modal { padding: 18px; }
+}
+</style>
+</head>
+<body>
+
+<div class="stars"></div>
+<div class="nebula"></div>
+
+<div class="evo-flash" id="evoFlash"></div>
+<div class="toast" id="toast"></div>
+
+<!-- Market Ticker -->
+<div class="ticker">
+  <div class="ticker-inner" id="tickerInner"></div>
+</div>
+
+<!-- Header -->
+<div class="app">
+<header class="header" style="margin-top:30px;">
+  <div class="header-left">
+    <div>
+      <div class="logo">Crypto<span>Pet</span></div>
+      <div class="tagline">虛擬加密寵物養成</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="balance-pill" id="balanceDisplay">10,000</div>
+    <div class="btn-icon" onclick="openDex()" title="圖鑑">📖</div>
+    <div class="btn-icon" onclick="openBuy()" title="購買寵物蛋">🥚</div>
+    <div class="btn-icon" onclick="openSell()" title="賣出寵物">💰</div>
+  </div>
+</header>
+
+<!-- Game Scene -->
+<div class="scene-wrap">
+  <div class="bg-img"></div>
+  <div class="scene" id="scene"></div>
+  <div class="ground"></div>
+</div>
+
+<!-- Portfolio Bar -->
+<div class="portfolio-bar" id="portfolioBar">
+  <div class="port-add" onclick="openBuy()" title="新增寵物">+</div>
+</div>
+</div>
+
+<!-- Pet Detail Modal -->
+<div class="modal-overlay" id="petModal" onclick="closeModal('petModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-close" onclick="closeModal('petModal')">✕</div>
+    <div class="pet-modal-header">
+      <svg class="pet-modal-svg" id="petModalSvg" width="90" height="90" viewBox="0 0 100 100"></svg>
+      <div class="pet-modal-meta">
+        <div class="pet-modal-name" id="petModalName"></div>
+        <div class="pet-modal-stage" id="petModalStage"></div>
+        <div class="pet-modal-coin" id="petModalCoin"></div>
+      </div>
+    </div>
+    <div class="stats-grid" id="petModalStats"></div>
+    <div class="evo-progress">
+      <div class="evo-label"><span>進化進度</span><span id="evoLabel">0%</span></div>
+      <div class="evo-track"><div class="evo-fill" id="evoFill" style="width:0%"></div></div>
+    </div>
+    <div class="modal-info-box" id="petModalInfo"></div>
+    <div class="modal-btns">
+      <button class="modal-btn" onclick="feedPet()">🍖 餵食</button>
+      <button class="modal-btn" onclick="petPet()">🤗 撫摸</button>
+      <button class="modal-btn sell" onclick="quickSell()">賣出</button>
+    </div>
+  </div>
+</div>
+
+<!-- Buy Modal -->
+<div class="modal-overlay" id="buyModal" onclick="closeModal('buyModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-close" onclick="closeModal('buyModal')">✕</div>
+    <div class="modal-title">🥚 孵化新寵物</div>
+    <div class="form-group">
+      <label class="form-label">選擇幣種（動物種類）</label>
+      <div class="coin-selector" id="coinSelector"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">投入金額（虛擬幣）</label>
+      <input type="number" class="form-input" id="buyAmount" placeholder="輸入金額，例如 1000" min="100" max="99999">
+    </div>
+    <div class="form-group">
+      <label class="form-label">持有數量</label>
+      <input type="number" class="form-input" id="buyQty" placeholder="例如 0.01" step="0.0001">
+    </div>
+    <div id="buyPreview" style="display:none; margin-bottom:14px;">
+      <div class="modal-info-box" id="buyPreviewText"></div>
+    </div>
+    <button class="form-submit" onclick="confirmBuy()">孵化！🐣</button>
+  </div>
+</div>
+
+<!-- Sell Modal -->
+<div class="modal-overlay" id="sellModal" onclick="closeModal('sellModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-close" onclick="closeModal('sellModal')">✕</div>
+    <div class="modal-title">💰 賣出寵物</div>
+    <div class="form-group">
+      <label class="form-label">選擇要賣出的寵物</label>
+      <select class="sell-select" id="sellSelect" onchange="updateSellPreview()">
+        <option value="">— 選擇寵物 —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">賣出金額（當前市值）</label>
+      <input type="number" class="form-input" id="sellAmount" placeholder="賣出金額">
+    </div>
+    <div id="sellPreview" style="display:none; margin-bottom:14px;">
+      <div class="modal-info-box" id="sellPreviewText"></div>
+    </div>
+    <button class="form-submit" style="background:linear-gradient(135deg,#ef4444,#b91c1c);" onclick="confirmSell()">確認賣出</button>
+  </div>
+</div>
+
+<!-- Dex Modal -->
+<div class="modal-overlay" id="dexModal" onclick="closeModal('dexModal')">
+  <div class="modal dex-modal" onclick="event.stopPropagation()">
+    <div class="modal-close" onclick="closeModal('dexModal')">✕</div>
+    <div class="modal-title">📖 寵物圖鑑</div>
+    <div class="dex-stats-row" id="dexStats"></div>
+    <div class="dex-grid" id="dexGrid"></div>
+  </div>
+</div>
+
+<script>
+// ─── COIN DEFINITIONS ───────────────────────────────────────
+const COINS = {
+  BTC: { name:'比特貓',   color:'#F7A800', animal:'cat',    basePrice: 67000 },
+  ETH: { name:'以太兔',   color:'#627EEA', animal:'rabbit', basePrice: 3200  },
+  SOL: { name:'索拉熊',   color:'#9945FF', animal:'bear',   basePrice: 180   },
+  BNB: { name:'幣安狗',   color:'#F0B90B', animal:'dog',    basePrice: 580   },
+  DOGE:{ name:'狗狗鼠',   color:'#C2A633', animal:'hamster',basePrice: 0.18  },
+};
+
+const STAGES = ['幼年期','成長期','成熟期'];
+const STAGE_DAYS = [0, 3, 10]; // days to reach each stage
+
+// ─── POKEDEX ENTRIES ────────────────────────────────────────
+const DEX_ENTRIES = [
+  { id:'001', name:'幼年比特貓', coin:'BTC', rarity:'common',  animal:'cat',    stage:0 },
+  { id:'002', name:'成長比特貓', coin:'BTC', rarity:'common',  animal:'cat',    stage:1 },
+  { id:'003', name:'成熟比特貓', coin:'BTC', rarity:'rare',    animal:'cat',    stage:2 },
+  { id:'004', name:'黃金貓王',   coin:'BTC', rarity:'epic',    animal:'cat',    stage:2 },
+  { id:'005', name:'月光幻貓',   coin:'BTC', rarity:'secret',  animal:'cat',    stage:2 },
+  { id:'006', name:'幼年以太兔', coin:'ETH', rarity:'common',  animal:'rabbit', stage:0 },
+  { id:'007', name:'成長以太兔', coin:'ETH', rarity:'common',  animal:'rabbit', stage:1 },
+  { id:'008', name:'成熟以太兔', coin:'ETH', rarity:'rare',    animal:'rabbit', stage:2 },
+  { id:'009', name:'閃電兔',     coin:'ETH', rarity:'epic',    animal:'rabbit', stage:2 },
+  { id:'010', name:'幼年索拉熊', coin:'SOL', rarity:'common',  animal:'bear',   stage:0 },
+  { id:'011', name:'成長索拉熊', coin:'SOL', rarity:'common',  animal:'bear',   stage:1 },
+  { id:'012', name:'成熟索拉熊', coin:'SOL', rarity:'rare',    animal:'bear',   stage:2 },
+  { id:'013', name:'幼年幣安狗', coin:'BNB', rarity:'common',  animal:'dog',    stage:0 },
+  { id:'014', name:'成熟幣安狗', coin:'BNB', rarity:'rare',    animal:'dog',    stage:2 },
+  { id:'015', name:'幼年狗狗鼠', coin:'DOGE',rarity:'common',  animal:'hamster',stage:0 },
+  { id:'016', name:'搞笑狗狗鼠', coin:'DOGE',rarity:'rare',    animal:'hamster',stage:2 },
+];
+
+// ─── STATE ──────────────────────────────────────────────────
+let state = {
+  balance: 10000,
+  pets: [],
+  prices: {},
+  unlocked: ['001','006','010'],
+  nextId: 1,
+  ticks: 0,
+};
+
+// ─── LOAD / SAVE ─────────────────────────────────────────────
+function save() {
+  localStorage.setItem('cryptopet_v1', JSON.stringify(state));
+}
+function load() {
+  const s = localStorage.getItem('cryptopet_v1');
+  if (s) { try { state = { ...state, ...JSON.parse(s) }; } catch(e){} }
+}
+
+// ─── PRICE ENGINE ────────────────────────────────────────────
+function initPrices() {
+  for (const sym in COINS) {
+    state.prices[sym] = { current: COINS[sym].basePrice, prev: COINS[sym].basePrice };
+  }
+}
+function tickPrices() {
+  for (const sym in COINS) {
+    const p = state.prices[sym];
+    const drift = (Math.random() - 0.48) * 0.025;
+    const newPrice = p.current * (1 + drift);
+    p.prev = p.current;
+    p.current = Math.max(newPrice, COINS[sym].basePrice * 0.3);
+  }
+}
+function pricePct(sym) {
+  const p = state.prices[sym];
+  return ((p.current - p.prev) / p.prev * 100);
+}
+function pnlPct(pet) {
+  return (state.prices[pet.sym].current - pet.costPrice) / pet.costPrice * 100;
+}
+function pnlAmt(pet) {
+  return (state.prices[pet.sym].current - pet.costPrice) * pet.qty;
+}
+
+// ─── PET STAGE ───────────────────────────────────────────────
+function getPetStage(pet) {
+  const daysHeld = (Date.now() - pet.bornAt) / 86400000;
+  // Accelerate for demo: 1 real minute = 1 game day
+  const gameDays = (Date.now() - pet.bornAt) / 60000;
+  const pnl = pnlPct(pet);
+  if (gameDays >= STAGE_DAYS[2] || pnl >= 50) return 2;
+  if (gameDays >= STAGE_DAYS[1] || pnl >= 20) return 1;
+  return 0;
+}
+function getEvoProgress(pet) {
+  const gameDays = (Date.now() - pet.bornAt) / 60000;
+  const stage = getPetStage(pet);
+  if (stage === 2) return 100;
+  if (stage === 1) {
+    return Math.min(100, Math.round((gameDays - STAGE_DAYS[1]) / (STAGE_DAYS[2] - STAGE_DAYS[1]) * 100));
+  }
+  return Math.min(100, Math.round(gameDays / STAGE_DAYS[1] * 100));
+}
+
+// ─── SVG ANIMALS ─────────────────────────────────────────────
+function drawAnimal(animal, sym, stage, size=100) {
+  const col = COINS[sym]?.color || '#888';
+  const s = stage; // 0=small, 1=medium, 2=big
+  const scale = [0.75, 0.88, 1.0][s];
+  const sc = `transform="scale(${scale}) translate(${(100-100*scale)/2/scale},${(100-100*scale)/scale*0.1})"`;
+
+  if (animal === 'cat') return `
+    <g ${sc}>
+      <ellipse cx="50" cy="58" rx="26" ry="22" fill="${col}" opacity="0.9"/>
+      <ellipse cx="50" cy="40" rx="22" ry="20" fill="${col}" opacity="0.9"/>
+      <ellipse cx="33" cy="22" rx="8" ry="13" fill="${col}" opacity="0.9"/>
+      <ellipse cx="67" cy="22" rx="8" ry="13" fill="${col}" opacity="0.9"/>
+      <ellipse cx="33" cy="20" rx="5" ry="9" fill="#FFB0C8"/>
+      <ellipse cx="67" cy="20" rx="5" ry="9" fill="#FFB0C8"/>
+      <ellipse cx="50" cy="48" rx="14" ry="11" fill="rgba(255,255,255,0.3)"/>
+      <ellipse cx="41" cy="37" rx="7" ry="8" fill="#fff"/>
+      <ellipse cx="59" cy="37" rx="7" ry="8" fill="#fff"/>
+      <ellipse cx="41" cy="38" rx="4.5" ry="5.5" fill="#1a0830"/>
+      <ellipse cx="59" cy="38" rx="4.5" ry="5.5" fill="#1a0830"/>
+      <circle cx="42.5" cy="36" r="1.8" fill="#fff"/>
+      <circle cx="60.5" cy="36" r="1.8" fill="#fff"/>
+      <ellipse cx="50" cy="50" rx="3" ry="2.5" fill="#FFB0C8"/>
+      <path d="M47 53 Q50 57 53 53" stroke="#e090a8" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <line x1="30" y1="48" x2="43" y2="50" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+      <line x1="30" y1="52" x2="43" y2="52" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+      <line x1="57" y1="50" x2="70" y2="48" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+      <line x1="57" y1="52" x2="70" y2="52" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+      <ellipse cx="33" cy="70" rx="9" ry="6" fill="${col}" opacity="0.85"/>
+      <ellipse cx="67" cy="70" rx="9" ry="6" fill="${col}" opacity="0.85"/>
+      <path d="M76 64 Q92 55 88 74 Q84 82 76 77" fill="${col}" opacity="0.85"/>
+      <circle cx="50" cy="14" r="9" fill="${col}" stroke="#fff" stroke-width="1.5" opacity="0.95"/>
+      <text x="50" y="18" text-anchor="middle" fill="#fff" font-size="${s===2?10:9}" font-weight="800" font-family="sans-serif">${sym.slice(0,3)}</text>
+    </g>`;
+
+  if (animal === 'rabbit') return `
+    <g ${sc}>
+      <ellipse cx="50" cy="57" rx="24" ry="21" fill="${col}" opacity="0.9"/>
+      <ellipse cx="50" cy="40" rx="20" ry="19" fill="${col}" opacity="0.9"/>
+      <ellipse cx="35" cy="16" rx="7" ry="16" fill="${col}" opacity="0.9"/>
+      <ellipse cx="65" cy="16" rx="7" ry="16" fill="${col}" opacity="0.9"/>
+      <ellipse cx="35" cy="14" rx="4" ry="12" fill="#FFB0D0"/>
+      <ellipse cx="65" cy="14" rx="4" ry="12" fill="#FFB0D0"/>
+      <ellipse cx="50" cy="48" rx="13" ry="9" fill="rgba(255,255,255,0.25)"/>
+      <ellipse cx="41" cy="37" rx="7" ry="8" fill="#fff"/>
+      <ellipse cx="59" cy="37" rx="7" ry="8" fill="#fff"/>
+      <ellipse cx="41" cy="38" rx="5" ry="6" fill="#1a0840"/>
+      <ellipse cx="59" cy="38" rx="5" ry="6" fill="#1a0840"/>
+      <circle cx="42.5" cy="36" r="2" fill="#fff"/>
+      <circle cx="60.5" cy="36" r="2" fill="#fff"/>
+      <ellipse cx="50" cy="50" rx="3" ry="2" fill="#FFB0D0"/>
+      <path d="M47 53 Q50 56 53 53" stroke="#e090b8" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <ellipse cx="34" cy="70" rx="8" ry="5" fill="${col}" opacity="0.85"/>
+      <ellipse cx="66" cy="70" rx="8" ry="5" fill="${col}" opacity="0.85"/>
+      <path d="M74 62 Q88 53 84 72 Q80 80 74 75" fill="${col}" opacity="0.8"/>
+      <circle cx="50" cy="13" r="9" fill="${col}" stroke="#fff" stroke-width="1.5" opacity="0.95"/>
+      <text x="50" y="17" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" font-family="sans-serif">${sym.slice(0,3)}</text>
+    </g>`;
+
+  if (animal === 'bear') return `
+    <g ${sc}>
+      <ellipse cx="50" cy="58" rx="25" ry="22" fill="${col}" opacity="0.9"/>
+      <ellipse cx="50" cy="40" rx="23" ry="21" fill="${col}" opacity="0.9"/>
+      <circle cx="34" cy="25" r="10" fill="${col}" opacity="0.9"/>
+      <circle cx="66" cy="25" r="10" fill="${col}" opacity="0.9"/>
+      <circle cx="34" cy="25" r="6" fill="rgba(255,255,255,0.2)"/>
+      <circle cx="66" cy="25" r="6" fill="rgba(255,255,255,0.2)"/>
+      <ellipse cx="50" cy="49" rx="14" ry="10" fill="rgba(255,255,255,0.2)"/>
+      <ellipse cx="41" cy="37" rx="7.5" ry="8.5" fill="#fff"/>
+      <ellipse cx="59" cy="37" rx="7.5" ry="8.5" fill="#fff"/>
+      <ellipse cx="41" cy="38" rx="5" ry="6" fill="#0a1a30"/>
+      <ellipse cx="59" cy="38" rx="5" ry="6" fill="#0a1a30"/>
+      <circle cx="42.5" cy="36" r="2" fill="#fff"/>
+      <circle cx="60.5" cy="36" r="2" fill="#fff"/>
+      <ellipse cx="50" cy="51" rx="4" ry="3" fill="rgba(255,255,255,0.3)"/>
+      <ellipse cx="50" cy="52" rx="2.5" ry="2" fill="${col}"/>
+      <path d="M47 55 Q50 59 53 55" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <ellipse cx="34" cy="72" rx="9" ry="6" fill="${col}" opacity="0.85"/>
+      <ellipse cx="66" cy="72" rx="9" ry="6" fill="${col}" opacity="0.85"/>
+      <circle cx="50" cy="12" r="9" fill="${col}" stroke="#fff" stroke-width="1.5" opacity="0.95"/>
+      <text x="50" y="16" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" font-family="sans-serif">${sym.slice(0,3)}</text>
+    </g>`;
+
+  if (animal === 'dog') return `
+    <g ${sc}>
+      <ellipse cx="50" cy="57" rx="24" ry="21" fill="${col}" opacity="0.9"/>
+      <ellipse cx="50" cy="40" rx="22" ry="20" fill="${col}" opacity="0.9"/>
+      <ellipse cx="30" cy="28" rx="9" ry="14" fill="${col}" opacity="0.9" transform="rotate(-15 30 28)"/>
+      <ellipse cx="70" cy="28" rx="9" ry="14" fill="${col}" opacity="0.9" transform="rotate(15 70 28)"/>
+      <ellipse cx="30" cy="28" rx="6" ry="10" fill="rgba(0,0,0,0.15)" transform="rotate(-15 30 28)"/>
+      <ellipse cx="70" cy="28" rx="6" ry="10" fill="rgba(0,0,0,0.15)" transform="rotate(15 70 28)"/>
+      <ellipse cx="50" cy="48" rx="15" ry="12" fill="rgba(255,255,255,0.25)"/>
+      <ellipse cx="41" cy="37" rx="7" ry="8" fill="#fff"/>
+      <ellipse cx="59" cy="37" rx="7" ry="8" fill="#fff"/>
+      <ellipse cx="41" cy="38" rx="5" ry="6" fill="#201000"/>
+      <ellipse cx="59" cy="38" rx="5" ry="6" fill="#201000"/>
+      <circle cx="42.5" cy="36" r="2" fill="#fff"/>
+      <circle cx="60.5" cy="36" r="2" fill="#fff"/>
+      <ellipse cx="50" cy="51" rx="5" ry="4" fill="rgba(255,255,255,0.3)"/>
+      <ellipse cx="50" cy="52" rx="3" ry="2.5" fill="${col}"/>
+      <path d="M46 55 Q50 60 54 55" stroke="rgba(255,255,255,0.6)" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <ellipse cx="34" cy="72" rx="9" ry="6" fill="${col}" opacity="0.85"/>
+      <ellipse cx="66" cy="72" rx="9" ry="6" fill="${col}" opacity="0.85"/>
+      <path d="M74 62 Q90 56 86 74" stroke="${col}" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.85"/>
+      <circle cx="50" cy="12" r="9" fill="${col}" stroke="#fff" stroke-width="1.5" opacity="0.95"/>
+      <text x="50" y="16" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" font-family="sans-serif">${sym.slice(0,3)}</text>
+    </g>`;
+
+  if (animal === 'hamster') return `
+    <g ${sc}>
+      <ellipse cx="50" cy="60" rx="26" ry="24" fill="${col}" opacity="0.9"/>
+      <ellipse cx="50" cy="40" rx="24" ry="22" fill="${col}" opacity="0.9"/>
+      <circle cx="34" cy="28" r="11" fill="${col}" opacity="0.9"/>
+      <circle cx="66" cy="28" r="11" fill="${col}" opacity="0.9"/>
+      <circle cx="34" cy="28" r="7" fill="rgba(255,220,180,0.4)"/>
+      <circle cx="66" cy="28" r="7" fill="rgba(255,220,180,0.4)"/>
+      <ellipse cx="36" cy="54" rx="12" ry="10" fill="rgba(255,255,255,0.2)"/>
+      <ellipse cx="64" cy="54" rx="12" ry="10" fill="rgba(255,255,255,0.2)"/>
+      <ellipse cx="41" cy="36" rx="7.5" ry="8.5" fill="#fff"/>
+      <ellipse cx="59" cy="36" rx="7.5" ry="8.5" fill="#fff"/>
+      <ellipse cx="41" cy="37" rx="5" ry="6" fill="#1a1000"/>
+      <ellipse cx="59" cy="37" rx="5" ry="6" fill="#1a1000"/>
+      <circle cx="42.5" cy="35" r="2" fill="#fff"/>
+      <circle cx="60.5" cy="35" r="2" fill="#fff"/>
+      <ellipse cx="50" cy="49" rx="5" ry="4" fill="rgba(255,255,255,0.35)"/>
+      <ellipse cx="50" cy="50" rx="3" ry="2.5" fill="${col}"/>
+      <path d="M47 53 Q50 57 53 53" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+      <ellipse cx="34" cy="76" rx="10" ry="6" fill="${col}" opacity="0.85"/>
+      <ellipse cx="66" cy="76" rx="10" ry="6" fill="${col}" opacity="0.85"/>
+      <circle cx="50" cy="11" r="9" fill="${col}" stroke="#fff" stroke-width="1.5" opacity="0.95"/>
+      <text x="50" y="15" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" font-family="sans-serif">${sym.slice(0,3)}</text>
+    </g>`;
+
+  return `<circle cx="50" cy="50" r="40" fill="${col}" opacity="0.6"/>`;
+}
+
+// ─── RENDER PETS ─────────────────────────────────────────────
+let petEls = {};
+
+function renderPets() {
+  const scene = document.getElementById('scene');
+  const sceneW = scene.offsetWidth || window.innerWidth;
+  const sceneH = scene.offsetHeight || 420;
+
+  state.pets.forEach(pet => {
+    if (!petEls[pet.id]) {
+      // Create element
+      const el = document.createElement('div');
+      el.className = 'pet';
+      el.id = 'pet_' + pet.id;
+      el.style.left = pet.x + 'px';
+      el.style.top  = pet.y + 'px';
+      el.onclick = () => openPetModal(pet.id);
+      scene.appendChild(el);
+      petEls[pet.id] = { el, dx: (Math.random()-0.5)*0.5, dy: (Math.random()-0.5)*0.25 };
+    }
+
+    const stage = getPetStage(pet);
+    const pnl = pnlPct(pet);
+    const pnlA = pnlAmt(pet);
+    const isUp = pnl >= 0;
+    const barPct = Math.min(100, Math.max(5, 50 + pnl * 2));
+    const barCol = isUp ? '#34d399' : '#f87171';
+    const coin = COINS[pet.sym];
+    const animal = coin ? coin.animal : 'cat';
+
+    const el = petEls[pet.id].el;
+    el.innerHTML = `
+      <div class="status-bar-container">
+        <div class="status-bar-row">
+          <span class="status-bar-sym">${pet.sym}</span>
+          <span class="status-bar-pnl ${isUp?'up':'dn'}">${isUp?'+':''}${pnlA.toFixed(0)}</span>
+        </div>
+        <div class="status-bar-track">
+          <div class="status-bar-fill" style="width:${barPct}%;background:${barCol};"></div>
+        </div>
+      </div>
+      <div class="pet-body">
+        <svg width="${[72,85,100][stage]}" height="${[72,85,100][stage]}" viewBox="0 0 100 100">
+          ${drawAnimal(animal, pet.sym, stage)}
+        </svg>
+      </div>
+      <div class="pet-name">${coin?.name || pet.sym}</div>
+      <div class="stage-badge">${STAGES[stage]}</div>
+    `;
+  });
+
+  // Remove stale
+  for (const id in petEls) {
+    if (!state.pets.find(p => p.id == id)) {
+      petEls[id].el.remove();
+      delete petEls[id];
+    }
+  }
+}
+
+// ─── PET MOVEMENT ────────────────────────────────────────────
+function movePets() {
+  const scene = document.getElementById('scene');
+  const W = scene.offsetWidth || window.innerWidth;
+  const H = scene.offsetHeight || 420;
+  const margin = 20;
+
+  state.pets.forEach(pet => {
+    const info = petEls[pet.id];
+    if (!info) return;
+    const el = info.el;
+    const w = el.offsetWidth || 100;
+    const h = el.offsetHeight || 130;
+
+    // Random drift
+    if (Math.random() < 0.02) { info.dx += (Math.random()-0.5)*0.3; info.dy += (Math.random()-0.5)*0.15; }
+    info.dx = Math.max(-0.7, Math.min(0.7, info.dx));
+    info.dy = Math.max(-0.35, Math.min(0.35, info.dy));
+
+    pet.x += info.dx;
+    pet.y += info.dy;
+
+    // Bounce off edges
+    if (pet.x < margin) { pet.x = margin; info.dx = Math.abs(info.dx); }
+    if (pet.x > W - w - margin) { pet.x = W - w - margin; info.dx = -Math.abs(info.dx); }
+    if (pet.y < margin) { pet.y = margin; info.dy = Math.abs(info.dy); }
+    if (pet.y > H - h - margin) { pet.y = H - h - margin; info.dy = -Math.abs(info.dy); }
+
+    el.style.left = pet.x + 'px';
+    el.style.top  = pet.y + 'px';
+  });
+}
+
+// ─── PORTFOLIO BAR ───────────────────────────────────────────
+function renderPortfolio() {
+  const bar = document.getElementById('portfolioBar');
+  bar.innerHTML = '';
+  state.pets.forEach(pet => {
+    const pnl = pnlPct(pet);
+    const isUp = pnl >= 0;
+    const chip = document.createElement('div');
+    chip.className = 'port-chip';
+    chip.onclick = () => openPetModal(pet.id);
+    chip.innerHTML = `
+      <div class="port-chip-dot" style="background:${COINS[pet.sym]?.color||'#888'}"></div>
+      <div class="port-chip-info">
+        <div class="port-chip-sym">${pet.sym}</div>
+        <div class="port-chip-name">${COINS[pet.sym]?.name||pet.sym}</div>
+      </div>
+      <div class="port-chip-pnl ${isUp?'up':'dn'}">${isUp?'+':''}${pnl.toFixed(1)}%</div>
+    `;
+    bar.appendChild(chip);
+  });
+  const addBtn = document.createElement('div');
+  addBtn.className = 'port-add';
+  addBtn.onclick = openBuy;
+  addBtn.textContent = '+';
+  bar.appendChild(addBtn);
+
+  document.getElementById('balanceDisplay').textContent = Math.round(state.balance).toLocaleString();
+}
+
+// ─── TICKER ──────────────────────────────────────────────────
+function renderTicker() {
+  const items = Object.entries(COINS).map(([sym, c]) => {
+    const pct = pricePct(sym);
+    const isUp = pct >= 0;
+    return `<div class="ticker-item">
+      <span class="ticker-sym">${sym}</span>
+      <span class="ticker-price">$${state.prices[sym].current.toFixed(sym==='DOGE'?4:0)}</span>
+      <span class="ticker-chg ${isUp?'up':'dn'}">${isUp?'+':''}${pct.toFixed(2)}%</span>
+    </div>`;
+  }).join('');
+  const inner = document.getElementById('tickerInner');
+  inner.innerHTML = items + items; // doubled for seamless loop
+}
+
+// ─── MODALS ──────────────────────────────────────────────────
+let activePetId = null;
+
+function openPetModal(id) {
+  activePetId = id;
+  const pet = state.pets.find(p => p.id == id);
+  if (!pet) return;
+  const stage = getPetStage(pet);
+  const pnl = pnlAmt(pet);
+  const pnlP = pnlPct(pet);
+  const isUp = pnl >= 0;
+  const coin = COINS[pet.sym];
+  const animal = coin ? coin.animal : 'cat';
+
+  document.getElementById('petModalName').textContent = coin?.name || pet.sym;
+  document.getElementById('petModalStage').textContent = STAGES[stage] + (stage===2?' 🌟':'');
+  document.getElementById('petModalCoin').textContent = pet.sym + ' · ' + (coin?.name||'');
+
+  const svg = document.getElementById('petModalSvg');
+  svg.innerHTML = drawAnimal(animal, pet.sym, stage);
+
+  const evoP = getEvoProgress(pet);
+  document.getElementById('evoFill').style.width = evoP + '%';
+  document.getElementById('evoLabel').textContent = evoP + '%';
+
+  document.getElementById('petModalStats').innerHTML = `
+    <div class="stat-box"><div class="stat-label">當前市價</div><div class="stat-val">$${state.prices[pet.sym].current.toFixed(pet.sym==='DOGE'?4:2)}</div></div>
+    <div class="stat-box"><div class="stat-label">持有數量</div><div class="stat-val">${pet.qty} ${pet.sym}</div></div>
+    <div class="stat-box"><div class="stat-label">買入成本</div><div class="stat-val">$${pet.costPrice.toFixed(pet.sym==='DOGE'?4:2)}</div></div>
+    <div class="stat-box"><div class="stat-label">未實現損益</div><div class="stat-val ${isUp?'up':'dn'}">${isUp?'+':''}${pnl.toFixed(0)} (${isUp?'+':''}${pnlP.toFixed(1)}%)</div></div>
+  `;
+
+  const nextStageInfo = stage < 2
+    ? `再持有 ${Math.max(0,(STAGE_DAYS[stage+1]-(Date.now()-pet.bornAt)/60000)).toFixed(0)} 分鐘，或獲利達 ${stage===0?20:50}% 可進化到${STAGES[stage+1]}！`
+    : '已達最高形態！繼續持有可能解鎖隱藏分支形態 ✨';
+  document.getElementById('petModalInfo').textContent = nextStageInfo;
+
+  openModal('petModal');
+}
+
+function openBuy() {
+  // Build coin selector
+  const sel = document.getElementById('coinSelector');
+  sel.innerHTML = '';
+  Object.entries(COINS).forEach(([sym, c]) => {
+    const btn = document.createElement('button');
+    btn.className = 'coin-btn';
+    btn.textContent = sym + ' ' + c.name;
+    btn.onclick = () => {
+      sel.querySelectorAll('.coin-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      btn.dataset.sym = sym;
+      updateBuyPreview();
+    };
+    btn.dataset.sym = sym;
+    sel.appendChild(btn);
+  });
+  document.getElementById('buyAmount').value = '';
+  document.getElementById('buyQty').value = '';
+  document.getElementById('buyPreview').style.display = 'none';
+  openModal('buyModal');
+}
+
+function updateBuyPreview() {
+  const selBtn = document.querySelector('.coin-btn.selected');
+  const amt = parseFloat(document.getElementById('buyAmount').value);
+  if (!selBtn || !amt) { document.getElementById('buyPreview').style.display = 'none'; return; }
+  const sym = selBtn.dataset.sym;
+  const price = state.prices[sym].current;
+  const qty = amt / price;
+  document.getElementById('buyQty').value = qty.toFixed(6);
+  document.getElementById('buyPreviewText').textContent =
+    `孵化 ${COINS[sym].name}！花費 ${amt} 虛擬幣，取得 ${qty.toFixed(6)} ${sym}，當前市價 $${price.toFixed(sym==='DOGE'?4:2)}`;
+  document.getElementById('buyPreview').style.display = 'block';
+}
+
+document.getElementById('buyAmount').addEventListener('input', updateBuyPreview);
+
+function confirmBuy() {
+  const selBtn = document.querySelector('.coin-btn.selected');
+  const amt = parseFloat(document.getElementById('buyAmount').value);
+  if (!selBtn) { showToast('請選擇幣種！'); return; }
+  if (!amt || amt < 100) { showToast('最低投入 100 虛擬幣'); return; }
+  if (amt > state.balance) { showToast('餘額不足！'); return; }
+
+  const sym = selBtn.dataset.sym;
+  const coin = COINS[sym];
+  const price = state.prices[sym].current;
+  const qty = amt / price;
+
+  const scene = document.getElementById('scene');
+  const W = scene.offsetWidth || window.innerWidth;
+  const H = scene.offsetHeight || 420;
+
+  const pet = {
+    id: state.nextId++,
+    sym, qty,
+    costPrice: price,
+    cost: amt,
+    bornAt: Date.now(),
+    x: Math.random() * (W - 150) + 50,
+    y: Math.random() * (H - 200) + 50,
+  };
+
+  state.pets.push(pet);
+  state.balance -= amt;
+
+  // Unlock dex entry
+  const dexId = getDexId(sym, 0);
+  if (dexId && !state.unlocked.includes(dexId)) state.unlocked.push(dexId);
+
+  save();
+  closeModal('buyModal');
+  renderPets();
+  renderPortfolio();
+  showToast(`🐣 ${coin.name} 已孵化！`);
+  spawnEffect(pet.x + 50, pet.y, '+' + amt + ' 花費', '#f87171');
+}
+
+function openSell() {
+  const sel = document.getElementById('sellSelect');
+  sel.innerHTML = '<option value="">— 選擇寵物 —</option>';
+  state.pets.forEach(pet => {
+    const opt = document.createElement('option');
+    opt.value = pet.id;
+    opt.textContent = `${COINS[pet.sym]?.name||pet.sym} (${pet.sym}) · 成本 ${pet.cost.toFixed(0)}`;
+    sel.appendChild(opt);
+  });
+  document.getElementById('sellAmount').value = '';
+  document.getElementById('sellPreview').style.display = 'none';
+  openModal('sellModal');
+}
+
+function updateSellPreview() {
+  const id = document.getElementById('sellSelect').value;
+  if (!id) { document.getElementById('sellPreview').style.display = 'none'; return; }
+  const pet = state.pets.find(p => p.id == id);
+  if (!pet) return;
+  const val = state.prices[pet.sym].current * pet.qty;
+  const pnl = val - pet.cost;
+  document.getElementById('sellAmount').value = Math.round(val);
+  document.getElementById('sellPreviewText').textContent =
+    `當前市值：${val.toFixed(0)} 虛擬幣 | 損益：${pnl>=0?'+':''}${pnl.toFixed(0)} (${((pnl/pet.cost)*100).toFixed(1)}%)`;
+  document.getElementById('sellPreview').style.display = 'block';
+}
+
+function confirmSell() {
+  const id = document.getElementById('sellSelect').value;
+  if (!id) { showToast('請選擇要賣出的寵物'); return; }
+  const idx = state.pets.findIndex(p => p.id == id);
+  if (idx < 0) return;
+  const pet = state.pets[idx];
+  const val = parseFloat(document.getElementById('sellAmount').value) || state.prices[pet.sym].current * pet.qty;
+  const pnl = val - pet.cost;
+
+  state.balance += val;
+  state.pets.splice(idx, 1);
+  save();
+  closeModal('sellModal');
+  delete petEls[id];
+  document.getElementById('pet_'+id)?.remove();
+  renderPortfolio();
+  showToast(`💰 ${COINS[pet.sym]?.name||pet.sym} 賣出！${pnl>=0?'+':''}${Math.round(pnl)} 虛擬幣`);
+}
+
+function quickSell() {
+  closeModal('petModal');
+  openSell();
+  if (activePetId) {
+    setTimeout(() => {
+      document.getElementById('sellSelect').value = activePetId;
+      updateSellPreview();
+    }, 100);
+  }
+}
+
+function openDex() {
+  const total = DEX_ENTRIES.length;
+  const got = state.unlocked.length;
+  document.getElementById('dexStats').innerHTML = `
+    <div class="dex-stat"><div class="dex-stat-n">${got}</div><div class="dex-stat-l">已解鎖</div></div>
+    <div class="dex-stat"><div class="dex-stat-n">${total}</div><div class="dex-stat-l">全圖鑑</div></div>
+    <div class="dex-stat"><div class="dex-stat-n">${Math.round(got/total*100)}%</div><div class="dex-stat-l">完成度</div></div>
+  `;
+
+  const grid = document.getElementById('dexGrid');
+  grid.innerHTML = '';
+  DEX_ENTRIES.forEach(e => {
+    const unlocked = state.unlocked.includes(e.id);
+    const cell = document.createElement('div');
+    cell.className = 'dex-cell' + (unlocked ? '' : ' locked');
+    const col = COINS[e.coin]?.color || '#888';
+    const animal = COINS[e.coin]?.animal || 'cat';
+    cell.innerHTML = `
+      <div class="dex-rarity r-${e.rarity}"></div>
+      <div class="dex-num">#${e.id}</div>
+      <svg width="48" height="48" viewBox="0 0 100 100">
+        ${unlocked ? drawAnimal(animal, e.coin, e.stage) : `<circle cx="50" cy="50" r="36" fill="rgba(255,255,255,0.08)"/><text x="50" y="56" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="24" font-family="sans-serif">?</text>`}
+      </svg>
+      <div class="dex-name">${unlocked ? e.name : '???'}</div>
+      <div class="dex-sub">${unlocked ? e.coin : '未解鎖'}</div>
+    `;
+    grid.appendChild(cell);
+  });
+
+  openModal('dexModal');
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ─── PET INTERACTIONS ────────────────────────────────────────
+function feedPet() {
+  const pet = state.pets.find(p => p.id == activePetId);
+  if (!pet) return;
+  showToast('🍖 餵食了！寵物很開心');
+  spawnEffect(pet.x + 50, pet.y, '🍖', '#fbbf24');
+}
+function petPet() {
+  const pet = state.pets.find(p => p.id == activePetId);
+  if (!pet) return;
+  showToast('🤗 撫摸了！寵物搖搖尾巴');
+  spawnEffect(pet.x + 50, pet.y, '♥', '#f472b6');
+}
+
+// ─── EFFECTS ─────────────────────────────────────────────────
+function spawnEffect(x, y, text, color) {
+  const el = document.createElement('div');
+  el.className = 'float-effect';
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  el.style.color = color;
+  el.textContent = text;
+  document.getElementById('scene').appendChild(el);
+  setTimeout(() => el.remove(), 1600);
+}
+
+function getDexId(sym, stage) {
+  const e = DEX_ENTRIES.find(d => d.coin === sym && d.stage === stage);
+  return e?.id;
+}
+
+// ─── EVOLUTION CHECK ─────────────────────────────────────────
+function checkEvolutions() {
+  state.pets.forEach(pet => {
+    const stage = getPetStage(pet);
+    const prevStage = pet._lastStage ?? 0;
+    if (stage > prevStage) {
+      pet._lastStage = stage;
+      // Unlock dex
+      const dexId = getDexId(pet.sym, stage);
+      if (dexId && !state.unlocked.includes(dexId)) {
+        state.unlocked.push(dexId);
+        showToast(`✨ ${COINS[pet.sym]?.name} 進化了！解鎖新圖鑑！`);
+        const flash = document.getElementById('evoFlash');
+        flash.classList.add('show');
+        setTimeout(() => flash.classList.remove('show'), 600);
+        spawnEffect(pet.x + 50, pet.y - 20, '⬆ 進化！', '#c084fc');
+      }
+    }
+  });
+}
+
+// ─── TOAST ───────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── MAIN LOOP ───────────────────────────────────────────────
+let lastPriceTick = 0;
+function gameLoop(ts) {
+  movePets();
+
+  if (ts - lastPriceTick > 4000) {
+    tickPrices();
+    renderTicker();
+    renderPets();
+    renderPortfolio();
+    checkEvolutions();
+    // Random market events
+    if (Math.random() < 0.04) {
+      const syms = Object.keys(COINS);
+      const sym = syms[Math.floor(Math.random()*syms.length)];
+      const evt = Math.random() < 0.5 ? '📈 市場上漲' : '📉 市場回調';
+      showToast(`${evt}：${sym} 波動加劇`);
+      state.prices[sym].current *= (Math.random() < 0.5) ? 1.04 : 0.96;
+    }
+    save();
+    lastPriceTick = ts;
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+function init() {
+  load();
+  initPrices();
+
+  // Restore pet positions
+  state.pets.forEach(pet => { pet._lastStage = pet._lastStage ?? getPetStage(pet); });
+
+  // Seed default pets if new user
+  if (state.pets.length === 0) {
+    const scene = document.getElementById('scene');
+    const W = scene.offsetWidth || window.innerWidth;
+    const H = scene.offsetHeight || 420;
+    const defaults = [
+      { sym:'BTC', qty:0.01, cost:670, costPrice:67000 },
+      { sym:'ETH', qty:0.5,  cost:1600, costPrice:3200 },
+      { sym:'SOL', qty:5,    cost:900,  costPrice:180  },
+    ];
+    defaults.forEach((d, i) => {
+      state.pets.push({
+        id: state.nextId++,
+        sym: d.sym,
+        qty: d.qty,
+        costPrice: d.costPrice,
+        cost: d.cost,
+        bornAt: Date.now() - i * 120000,
+        x: 80 + i * 200 + Math.random()*60,
+        y: 100 + Math.random() * 150,
+        _lastStage: 0,
+      });
+    });
+    state.balance = 10000 - 670 - 1600 - 900;
+    state.unlocked = ['001','006','010'];
+  }
+
+  renderTicker();
+  renderPets();
+  renderPortfolio();
+  requestAnimationFrame(gameLoop);
+}
+
+window.addEventListener('load', init);
+
+// Build coin selector
+document.getElementById('coinSelector')?.addEventListener('change', updateBuyPreview);
+</script>
+</body>
+</html>
