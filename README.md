@@ -4,10 +4,8 @@ CryptoPet 是國立勤益科技大學資訊管理系的實務專題原型，透�
 
 ## 展示頁面
 
-- [線上展示入口](./index.html)
-- [相容舊檔名的展示頁](./cryptopet.html)
-
-目前 GitHub Pages 尚未啟用。要發布網站，請到 **Settings → Pages → Build and deployment**，選擇 **Deploy from a branch**、分支 `main`、資料夾 `/(root)`，再按 **Save**。發布後網址預計為 `https://kstapryun.github.io/ncut_project/`。
+- [CryptoPet 線上操作頁](https://kstapryun.github.io/ncut_project/)
+- [GitHub 專題原始碼](https://github.com/Kstapryun/ncut_project)
 
 ## 目前功能
 
@@ -32,9 +30,6 @@ CryptoPet 是國立勤益科技大學資訊管理系的實務專題原型，透�
 | `index.html`、`cryptopet.html` | 目前 V5.3 前端展示頁 |
 | `CryptoPetNFT.sol` | 可在 Remix 使用的 V2 合約 |
 | `hardhat-project/` | V2 合約、本機測試及 Sepolia 部署設定 |
-| `3B132025實務專題計劃書.docx` | 專題計劃書 |
-| `3B132025專題報告書.docx` | 報告書 |
-| `3B132025口試簡報.pptx` | 口試簡報 |
 
 ## 執行說明
 
