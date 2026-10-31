@@ -6,92 +6,92 @@ import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/contr
 
 /**
  * @title CryptoPetNFT
- * @dev 加密寵物 NFT 合約
- *      ERC-721 鑄造 + 鏈上隨機進化系統
- *      國立勤益科技大學 資訊管理系 專題
- *      專題生：游紹維 3B132025
+ * @dev V2：前端完成虛擬養成後，僅將成熟寵物鑄造成 NFT。
+ *      鏈上保存幣種、成熟階段、鑄造時隨機稀有度與時間。
+ *      稀有度雜湊僅供 Sepolia 教學展示，不是可驗證公平的隨機方案。
+ *
+ *      此 Remix 版本與 Hardhat 的 CryptoPetNFT.sol 使用相同介面與邏輯。
  */
 contract CryptoPetNFT is ERC721, Ownable {
-
+    uint8 public constant STAGE_MATURE = 2;
     uint256 public constant MINT_FEE = 0.001 ether;
 
     struct Pet {
-        string  symbol;   // 幣種代號 e.g. "BTC"
-        uint8   stage;    // 形態：0=幼年期 1=成長期 2=成熟期
-        uint8   rarity;   // 稀有度：0=普通 1=稀有 2=史詩 3=隱藏
-        uint256 bornAt;   // 鑄造時間戳
+        string symbol;
+        uint8 stage;
+        uint8 rarity;
+        uint256 bornAt;
     }
 
     uint256 private _nextTokenId = 1;
     mapping(uint256 => Pet) public pets;
+    mapping(string => bool) public supportedSymbols;
 
-    event PetMinted(uint256 tokenId, address owner, string symbol);
-    event PetEvolved(uint256 tokenId, uint8 newStage, uint8 rarity);
+    event PetMinted(
+        uint256 tokenId,
+        address owner,
+        string symbol,
+        uint8 stage,
+        uint8 rarity
+    );
 
-    constructor() ERC721("CryptoPet", "CPET") Ownable(msg.sender) {}
+    constructor() ERC721("CryptoPet", "CPET") Ownable(msg.sender) {
+        supportedSymbols["BTC"] = true;
+        supportedSymbols["ETH"] = true;
+        supportedSymbols["SOL"] = true;
+        supportedSymbols["BNB"] = true;
+        supportedSymbols["DOGE"] = true;
+    }
 
-    /**
-     * @notice 鑄造新寵物 NFT
-     * @param symbol 幣種代號（如 BTC、ETH、SOL）
-     */
-    function mintPet(string calldata symbol) external payable returns (uint256) {
-        require(msg.value >= MINT_FEE, "insufficient fee");
-
-        uint256 tokenId = _nextTokenId++;
-        _safeMint(msg.sender, tokenId);
-
-        pets[tokenId] = Pet({
-            symbol:  symbol,
-            stage:   0,
-            rarity:  0,
-            bornAt:  block.timestamp
-        });
-
-        emit PetMinted(tokenId, msg.sender, symbol);
-        return tokenId;
+    function contractVersion() external pure returns (uint256) {
+        return 2;
     }
 
     /**
-     * @notice 觸發寵物進化
-     * @dev 以 keccak256(block.timestamp, msg.sender, tokenId) % 100 決定稀有度
-     *      機率分配：普通 60% / 稀有 25% / 史詩 12% / 隱藏 3%
-     * @param tokenId 要進化的寵物 ID
+     * @dev 遊戲養成與投入紀錄留在前端；本函式只記錄前端解鎖的成熟寵物。
+     *      合約不驗證 LocalStorage 內的養成歷程。
      */
-    function evolve(uint256 tokenId) external {
-        require(ownerOf(tokenId) == msg.sender, "not owner");
-        Pet storage pet = pets[tokenId];
-        require(pet.stage < 2, "max stage");
+    function mintPet(string calldata symbol) external payable returns (uint256 tokenId) {
+        require(supportedSymbols[symbol], "unsupported symbol");
+        require(msg.value >= MINT_FEE, "insufficient fee");
 
-        uint256 rand = uint256(keccak256(abi.encodePacked(
+        tokenId = _nextTokenId++;
+        _safeMint(msg.sender, tokenId);
+
+        uint8 rarity = _rollRarity(tokenId);
+        pets[tokenId] = Pet({
+            symbol: symbol,
+            stage: STAGE_MATURE,
+            rarity: rarity,
+            bornAt: block.timestamp
+        });
+
+        emit PetMinted(tokenId, msg.sender, symbol, STAGE_MATURE, rarity);
+    }
+
+    function getPet(uint256 tokenId) external view returns (Pet memory) {
+        require(_ownerOf(tokenId) != address(0), "nonexistent token");
+        return pets[tokenId];
+    }
+
+    function withdraw() external onlyOwner {
+        uint256 amount = address(this).balance;
+        require(amount > 0, "nothing to withdraw");
+        (bool ok,) = payable(owner()).call{value: amount}("");
+        require(ok, "transfer failed");
+    }
+
+    function _rollRarity(uint256 tokenId) private view returns (uint8) {
+        uint256 roll = uint256(keccak256(abi.encodePacked(
             block.timestamp,
+            block.prevrandao,
             msg.sender,
             tokenId
         ))) % 100;
 
-        uint8 rarity;
-        if      (rand < 60) rarity = 0;  // 普通 60%
-        else if (rand < 85) rarity = 1;  // 稀有 25%
-        else if (rand < 97) rarity = 2;  // 史詩 12%
-        else                rarity = 3;  // 隱藏  3%
-
-        pet.stage++;
-        pet.rarity = rarity;
-
-        emit PetEvolved(tokenId, pet.stage, rarity);
-    }
-
-    /**
-     * @notice 查詢寵物完整屬性
-     * @param tokenId 寵物 ID
-     */
-    function getPet(uint256 tokenId) external view returns (Pet memory) {
-        return pets[tokenId];
-    }
-
-    /**
-     * @notice 提領合約累積手續費（僅限擁有者）
-     */
-    function withdraw() external onlyOwner {
-        payable(owner()).transfer(address(this).balance);
+        if (roll < 60) return 0;
+        if (roll < 85) return 1;
+        if (roll < 97) return 2;
+        return 3;
     }
 }
