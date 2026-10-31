@@ -1,43 +1,34 @@
-# CryptoPet NFT 合約規格
+# CryptoPet V2 合約與本機測試
 
-## V2 生命週期
+這個資料夾包含 CryptoPet NFT V2 的 Hardhat 合約、測試與 Sepolia 部署腳本。
 
-遊戲在前端完成虛擬持倉與寵物養成。寵物達成熟條件後，使用者可呼叫 mintPet(symbol) 將成熟寵物鑄造成 ERC-721 NFT。合約保存幣種、成熟階段、鑄造時產生的稀有度與時間；getPet(tokenId) 可讀取鏈上資料。
+## 合約設計
 
-遊戲養成紀錄和虛擬持倉仍存在瀏覽器 LocalStorage。合約不會驗證這段前端歷程，所以 NFT 表示鑄造時記錄的寵物資料，不是完整鏈上遊戲紀錄。V2 沒有獨立的鏈上 evolve()；成熟前的進化由遊戲本地規則管理。
+遊戲的虛擬持倉與成熟條件由前端管理。使用者達到成熟條件後，才可呼叫 `mintPet(symbol)` 鑄造 ERC-721 NFT。合約記錄幣種、成熟階段、展示用稀有度和鑄造時間；合約不會驗證瀏覽器 LocalStorage 中的養成歷程。
 
-## 唯一介面
+- 合約版本：`contractVersion()` 回傳 2。
+- 鑄造費：至少 0.001 ETH。
+- 支援幣種：BTC、ETH、SOL、BNB、DOGE。
+- 稀有度以區塊資料計算，僅供教學展示，未證明公平或不可操控。
+- Remix 版本位於專案根目錄的 `../CryptoPetNFT.sol`。
 
-- contractVersion()：回傳 2，供前端辨認合約版本。
-- mintPet(string symbol)：支援 BTC、ETH、SOL、BNB、DOGE，最低鑄造費 0.001 ETH。新 NFT 記錄為成熟期，並於鑄造時取得稀有度。
-- getPet(uint256 tokenId)：回傳幣種、階段、稀有度和鑄造時間。
-- withdraw()：合約擁有者提領鑄造費。
+## 本機安裝與測試
 
-Remix 版來源位於 報告書orPPT截圖/CryptoPetNFT.sol；Hardhat 版位於 contracts/CryptoPetNFT.sol。兩份使用相同的 V2 介面與邏輯，只因編譯環境而使用不同的 OpenZeppelin 匯入路徑。
+安裝 Node.js 後，在本資料夾執行：
 
-## 本機編譯與測試
-
-在 cryptopet 目錄安裝 package.json 指定的依賴：
-
+```powershell
 npm install
+npm run compile
+npm test
+```
 
-完成後可執行：
-
-npx hardhat compile
-npx hardhat test
-
-測試涵蓋合約版本、支援幣種、鑄造費、成熟階段、稀有度範圍、查詢不存在的 Token ID 和提領權限。稀有度範圍測試不代表機率分布或公平性已獲統計驗證。
+目前專題紀錄為 8 項本機 Hardhat 測試通過。這些測試不代表已部署到 Sepolia，也不代表已測得實際鏈上 Gas 費用。
 
 ## Sepolia 部署
 
-設定 .env 中的 Sepolia RPC URL、測試帳戶私鑰及 Etherscan API Key，再執行：
+1. 複製 `.env.example` 為 `.env`，填入 Sepolia RPC、測試錢包私鑰及 Etherscan API Key。
+2. 只使用 Sepolia 測試錢包，絕不可使用主網私鑰。
+3. 執行 `npm run deploy:sepolia`。
+4. 將新合約地址更新到根目錄的 `index.html` 和 `cryptopet.html`。
 
-npx hardhat run scripts/deploy.js --network sepolia
-
-部署後需將新合約地址更新至 cryptopet_v5_3.html 的 CONTRACT_ADDRESS。前端會先讀取 contractVersion()；舊版合約不相容時會停止鑄造，避免沿用舊地址卻誤以為鏈上已記錄成熟階段。此專案尚未由本次工作自動部署到 Sepolia。
-
-## 隨機性與成本的說明
-
-目前稀有度使用區塊資料雜湊映射至普通 60%、稀有 25%、史詩 12%、隱藏 3%。這是展示用機制，不應稱為不可預測、不可操控或已證明公平；正式公平隨機需另外設計並驗證，例如採用可驗證隨機服務。
-
-Gas 應以實際交易回條的 gasUsed 記錄。getPet() 是 view 查詢；一般錢包讀取不會產生使用者支付的鏈上交易費，不能將模擬執行估算寫成實付 Gas.
+不要將 `.env` 或任何真實金鑰提交到 GitHub。此專案目前尚未由此部署流程完成 V2 Sepolia 部署。
