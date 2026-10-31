@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFT寵物養成</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: #f0f0f0;
+    color: #333;
+  }
+
+  header {
+    background: #4a90d9;
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 18px; }
+
+  .header-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  button {
+    padding: 5px 14px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button:hover { background: #eee; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .wallet-info {
+    font-size: 12px;
+    color: #dff;
+  }
+
+  /* 價格列 */
+  .price-bar {
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    padding: 6px 20px;
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    font-size: 12px;
+  }
+  .price-item { white-space: nowrap; }
+  .up { color: green; }
+  .dn { color: red; }
+
+  /* 主內容 */
+  .container {
+    display: flex;
+    height: calc(100vh - 90px);
+  }
+
+  /* 遊戲場景 */
+  .scene-wrap {
+    flex: 1;
+    background: #d4edda;
+    position: relative;
+    overflow: hidden;
+    border-right: 1px solid #ccc;
+  }
+  .scene { position: absolute; inset: 0; }
+
+  .pet-el {
+    position: absolute;
+    text-align: center;
+    cursor: pointer;
+  }
+  .pet-el:hover { opacity: 0.8; }
+  .pet-emoji { width:56px; height:56px; display:block; margin:0 auto; animation:petBob 1.8s ease-in-out infinite; transform-origin:50% 75%; }
+  .pet-emoji svg { width:100%; height:100%; overflow:visible; }
+  .pet-glow svg { filter:drop-shadow(0 0 5px rgba(255,214,82,.8)); }
+  @keyframes petBob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
+  .pet-tag {
+    font-size: 11px;
+    background: rgba(255,255,255,0.85);
+    border: 1px solid #bbb;
+    border-radius: 3px;
+    padding: 1px 5px;
+    display: inline-block;
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+  .pet-pnl { font-size: 11px; font-weight: bold; display: block; }
+  .pet-mood { font-size: 13px; margin-left: 3px; }
+  .portfolio-metric { display:flex; justify-content:space-between; gap:8px; font-size:11px; margin:4px 0; }
+  .portfolio-note { color:#888; font-size:10px; line-height:1.5; margin-top:6px; }
+  .market-range { margin:9px 0; padding:9px; background:#f7f9fc; border:1px solid #e5eaf0; border-radius:6px; font-size:11px; }
+  .market-range-title { font-weight:bold; margin-bottom:6px; color:#34495e; }
+  .market-range-metrics { display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; }
+  .market-range-status { margin-top:6px; font-weight:bold; color:#566573; }
+  .market-range-note { color:#888; font-size:10px; line-height:1.45; margin-top:5px; }
+  .trade-history { margin:8px 0; padding:0; list-style:none; font-size:10px; color:#666; }
+  .trade-history li { padding:4px 0; border-top:1px solid #eee; }
+  #collectionModal .modal { width:min(760px,calc(100vw - 32px)); max-height:85vh; overflow-y:auto; }
+  .collection-summary { font-size:12px; color:#566573; margin:-4px 0 10px; }
+  .collection-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+  .collection-card { min-height:116px; padding:8px 6px; border:1px solid #e5eaf0; border-radius:7px; background:#f7f9fc; text-align:center; font-size:11px; }
+  .collection-card.locked { background:#f1f1f1; color:#999; }
+  .collection-card .collection-avatar { width:50px; height:50px; margin:0 auto 4px; }
+  .collection-question { width:50px; height:50px; display:grid; place-items:center; margin:0 auto 4px; border-radius:50%; background:#e0e0e0; color:#999; font-size:25px; font-weight:bold; }
+  .collection-status { display:block; margin-top:3px; color:#888; font-size:10px; }
+  @media (max-width:520px) { .collection-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  .evolve-progress { height:7px; background:#e8e8e8; border-radius:6px; overflow:hidden; margin:6px 0; }
+  .evolve-progress span { display:block; height:100%; background:#73b77a; }
+
+  /* 右側欄 */
+  .sidebar {
+    width: 280px;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .side-section {
+    padding: 12px 14px;
+    border-bottom: 1px solid #eee;
+  }
+  .side-section h3 {
+    font-size: 13px;
+    color: #555;
+    margin-bottom: 8px;
+    font-weight: bold;
+  }
+
+  .balance-row {
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .balance-row span { font-weight: bold; color: #e67e22; }
+
+  /* 持有列表 */
+  .pet-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid #f5f5f5;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .pet-row:hover { background: #f9f9f9; }
+  .pet-row:last-child { border-bottom: none; }
+
+  /* 區塊鏈操作 */
+  .chain-section { flex: 1; padding: 12px 14px; }
+  .chain-section h3 { font-size: 13px; color: #555; margin-bottom: 8px; font-weight: bold; }
+
+  .not-connected { font-size: 12px; color: #aaa; }
+
+  .op-block { margin-bottom: 14px; }
+  .op-block label { display: block; font-size: 11px; color: #777; margin-bottom: 3px; }
+  .op-block input {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+  .op-block button {
+    width: 100%;
+    background: #4a90d9;
+    color: white;
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .op-block button:hover { background: #357abd; }
+  .op-block button.evolve { background: #e67e22; }
+  .op-block button.evolve:hover { background: #ca6f1e; }
+  .op-block button.query { background: #27ae60; }
+  .op-block button.query:hover { background: #229954; }
+
+  .tx-box {
+    margin-top: 5px;
+    font-size: 10px;
+    padding: 6px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    word-break: break-all;
+    line-height: 1.5;
+    white-space: pre-line;
+    display: none;
+  }
+  .tx-box.show { display: block; }
+  .tx-box a { color: #4a90d9; }
+  .tx-box.err {
+    background: #fdecea;
+    border: 1px solid #d32f2f;
+    color: #d32f2f;
+    font-weight: bold;
+  }
+  .tx-box.ok {
+    background: #edf7ed;
+    border: 1px solid #2e7d32;
+    color: #1b5e20;
+  }
+
+  .divider { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+
+  /* Modal */
+  .modal-bg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 6px;
+    width: 320px;
+    padding: 20px;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .modal h2 { font-size: 15px; margin-bottom: 14px; }
+  .modal-close {
+    position: absolute;
+    top: 14px; right: 16px;
+    cursor: pointer;
+    font-size: 18px;
+    color: #aaa;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+  .modal-close:hover { color: #555; background: none; }
+
+  .pet-big-emoji { font-size: 32px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px 0; }
+  .pet-big-emoji .pet-big-svg { width: 88px; height: 88px; display: block; }
+  .pet-big-emoji .pet-big-svg svg { width: 100%; height: 100%; overflow: visible; }
+
+  /* 窄螢幕：場景與側欄改成上下排列 */
+  @media (max-width: 760px) {
+    .container { flex-direction: column; height: auto; }
+    .scene-wrap { flex: none; height: 60vh; border-right: none; border-bottom: 1px solid #ccc; }
+    .sidebar { width: 100%; overflow-y: visible; }
+  }
+  .info-table { width: 100%; font-size: 12px; border-collapse: collapse; margin: 8px 0; }
+  .info-table td { padding: 4px 6px; border-bottom: 1px solid #f0f0f0; }
+  .info-table td:first-child { color: #888; width: 40%; }
+
+  .modal-btns { display: flex; gap: 8px; margin-top: 12px; }
+  .modal-btns button { flex: 1; }
+
+  .coin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .coin-btn {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 7px;
+    text-align: center;
+    font-size: 12px;
+    cursor: pointer;
+    background: white;
+  }
+  .coin-btn:hover { background: #f5f5f5; }
+  .coin-btn.sel { border-color: #4a90d9; background: #eaf2fb; }
+  .coin-btn .ce { font-size: 22px; display: block; }
+
+  .modal input {
+    width: 100%; padding: 6px 8px;
+    border: 1px solid #ccc; border-radius: 4px;
+    font-size: 12px; margin-bottom: 5px;
+  }
+  .modal select {
+    width: 100%; padding: 6px 8px;
+    border: 1px solid #ccc; border-radius: 4px;
+    font-size: 12px; margin-bottom: 5px;
+  }
+  .hint { font-size: 11px; color: #888; margin-bottom: 8px; }
+
+  .toast {
+    position: fixed; bottom: 16px; left: 50%;
+    transform: translateX(-50%) translateY(6px);
+    background: #333; color: white;
+    padding: 7px 16px; border-radius: 4px;
+    font-size: 12px; opacity: 0;
+    transition: all 0.25s; z-index: 200;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Inline 錯誤訊息（顯示在按鈕旁邊） */
+  .inline-err {
+    color: #d32f2f;
+    font-size: 11px;
+    font-weight: bold;
+    margin-top: 4px;
+    display: none;
+  }
+  .inline-err.show { display: block; }
+  .inline-ok {
+    color: #2e7d32;
+    font-size: 11px;
+    font-weight: bold;
+    margin-top: 4px;
+    display: none;
+  }
+  .inline-ok.show { display: block; }
+
+  .float-fx {
+    position: absolute; pointer-events: none;
+    font-size: 12px; font-weight: bold;
+    animation: floatUp 1.3s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0%   { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-40px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<header>
+  <h1>CryptoPet 模擬持倉</h1>
+  <div class="header-btns">
+    <span class="wallet-info" id="walletInfo"></span>
+    <button onclick="toggleMarketMode()" id="marketModeBtn">切到模擬行情</button>
+    <button onclick="openModal('marketSourceModal')">行情與資料說明</button>
+    <button onclick="openCollectionModal()">寵物圖鑑</button>
+    <div style="position:relative;">
+      <button onclick="connectWallet()" id="btnConnect">連接MetaMask</button>
+      <div class="inline-err" id="connectErr" style="position:absolute; top:100%; left:0; white-space:nowrap; background:white; padding:2px 6px; border-radius:3px; box-shadow:0 2px 4px rgba(0,0,0,0.15); z-index:50;"></div>
+    </div>
+    <button onclick="openBuyModal()">模擬買入</button>
+    <button onclick="openSellModal()">結算持倉</button>
+  </div>
+</header>
+
+<!-- 價格列 -->
+<div class="price-bar" id="priceBar"></div>
+
+<div class="container">
+  <!-- 遊戲場景 -->
+  <div class="scene-wrap">
+    <div class="scene" id="scene"></div>
+  </div>
+
+  <!-- 側邊欄 -->
+  <div class="sidebar">
+    <div class="side-section">
+      <h3>帳戶</h3>
+      <div class="balance-row">
+        <span>模擬資金（USD 單位）</span>
+        <span id="balDisplay">10,000</span>
+      </div>
+      <div class="balance-row" style="margin-top:4px;">
+        <span>起始虛擬資金</span>
+        <span id="startBalanceDisplay">10,000</span>
+      </div>
+      <div class="balance-row" style="margin-top:6px;">
+        <span>Sepolia ETH 餘額</span>
+        <span id="ethBalDisplay" style="color:#888;">未連接</span>
+      </div>
+      <p id="rateHint" style="font-size:10px;color:#aaa;margin-top:6px;display:none;">
+        遊戲虛擬幣與錢包 ETH 分開；鑄造費與 Gas 需另付 Sepolia 測試 ETH。
+      </p>
+    </div>
+
+    <div class="side-section">
+      <h3>持有中</h3>
+      <div id="petList"><p style="font-size:12px;color:#aaa;">還沒有寵物</p></div>
+    </div>
+
+    <div class="side-section">
+      <h3 id="portfolioTitle">持倉分析</h3>
+      <div id="portfolioSummary"></div>
+    </div>
+
+    <div class="chain-section">
+      <h3>⛓ 鏈上操作</h3>
+      <div id="chainNotConn" class="not-connected">請先連接MetaMask</div>
+      <div id="chainPanel" style="display:none;">
+        <p style="font-size:11px;color:#888;margin-bottom:10px;" id="chainInfo"></p>
+
+        <div class="op-block">
+          <label>鑄造成 NFT（mintPet）</label>
+          <p style="font-size:10px;color:#888;margin-bottom:6px;">將養到成熟期的寵物正式鑄造上鏈，成為你永久擁有的 NFT</p>
+          <select id="mintSelect" onchange="updateMintPreview()">
+            <option value="">— 選擇已成熟的寵物 —</option>
+          </select>
+          <p class="hint" id="mintPreview" style="margin-top:6px;"></p>
+          <p class="hint" id="mintFeeHint">費用：0.001 ETH（Sepolia 測試網）</p>
+          <button onclick="mintPetOnChain()" id="btnMint">鑄造</button>
+          <div class="tx-box" id="mintRes"></div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="op-block">
+          <label>查詢 getPet</label>
+          <input type="number" id="queryTid" placeholder="Token ID" min="1">
+          <button class="query" onclick="queryPetOnChain()" id="btnQuery">查詢</button>
+          <div class="tx-box" id="queryRes"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 行情來源說明 Modal -->
+<div class="modal-bg" id="marketSourceModal" onclick="closeModal('marketSourceModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('marketSourceModal')">×</button>
+    <h2>行情與資料來源</h2>
+    <div class="portfolio-note" style="font-size:12px;margin:10px 0;">
+      <p><strong>即時模式：</strong>讀取 Binance Spot 公開市場資料，不需要連接錢包或提供 API 金鑰。即時價格約每 60 秒更新一次；近期高低點由 1 小時 K 線計算，啟動時載入最近 168 根（約 7 日）。</p>
+      <p style="margin-top:8px;"><strong>資料來源：</strong><a href="https://developers.binance.com/en/docs/products/spot/rest-api" target="_blank" rel="noopener noreferrer">Binance Spot API 官方文件</a>；公開資料 API 位於 <a href="https://data-api.binance.vision" target="_blank" rel="noopener noreferrer">data-api.binance.vision</a>。本程式讀取 <code>/api/v3/ticker/24hr</code> 與 <code>/api/v3/klines</code>。交易對為 BTC/USDT、ETH/USDT、SOL/USDT、BNB/USDT、DOGE/USDT。</p>
+      <p style="margin-top:8px;"><strong>解讀方式：</strong>行情來自單一交易所，不代表所有平台的綜合價格。遊戲以 USDT 報價近似美元顯示，未換算 USDT/USD 匯率。高點或低點只描述近期區間位置，不代表趨勢或買賣建議。</p>
+      <p style="margin-top:8px;"><strong>虛擬帳戶：</strong>交易所行情與隨機模擬行情各自保存餘額、寵物、交易紀錄和價格歷史。切換模式會進入另一份帳戶，不會拿新行情重估上一模式的寵物；首次使用的模式會建立獨立虛擬資金。</p>
+      <p style="margin-top:8px;"><strong>NFT 資料範圍：</strong>寵物先在本機養成，成熟後才鑄造。V2 NFT 記錄幣種、成熟階段、稀有度和鑄造時間；虛擬持倉、買賣與養成歷程留在本機，合約不會驗證這些歷程。</p>
+      <p style="margin-top:8px;"><strong>舊存檔：</strong>有記錄行情模式的存檔會留在上次使用的帳戶；較舊且沒有模式欄位的存檔會遷移到隨機模擬帳戶，即時行情帳戶會另行建立。</p>
+      <p style="margin-top:8px;"><strong>遊戲操作：</strong>買入與賣出仍是本機模擬交易，不會送出真實訂單。模擬模式會以隨機行情運作，資料來源狀態會明確標示。</p>
+      <p style="margin-top:8px;" id="marketSourceStatus"></p>
+      <button onclick="retryMarketSource()">重新連線行情來源</button>
+    </div>
+  </div>
+</div>
+
+<!-- 寵物圖鑑 Modal -->
+<div class="modal-bg" id="collectionModal" onclick="closeModal('collectionModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('collectionModal')">×</button>
+    <h2>🐾 寵物成長圖鑑</h2>
+    <p class="collection-summary" id="collectionSummary"></p>
+    <p class="portfolio-note" style="margin:0 0 10px;">圖鑑記錄本機遊戲中曾達到的幣種與階段；它不代表這些資料都已寫入 NFT。</p>
+    <div class="collection-grid" id="collectionGrid"></div>
+  </div>
+</div>
+
+<!-- 寵物詳情 Modal -->
+<div class="modal-bg" id="petModal" onclick="closeModal('petModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('petModal')">×</button>
+    <h2 id="pmTitle">寵物資訊</h2>
+    <span class="pet-big-emoji" id="pmEmoji"></span>
+    <table class="info-table" id="pmTable"></table>
+    <div id="pmInsight" class="portfolio-note"></div>
+    <div id="pmMarketRange" class="market-range"></div>
+    <div id="pmEvolveBlock" style="margin:10px 0; padding:8px; background:#f5f5f5; border-radius:4px;">
+        <p style="font-size:11px; color:#666; margin-bottom:6px;" id="pmEvolveInfo"></p>
+        <p style="font-size:10px;color:#888;line-height:1.4;margin-bottom:6px;">進化金額只使用遊戲虛擬資金；百分比是相對起始資金的比例，不代表真實投資建議。</p>
+      <button onclick="evolvePetManual()" id="pmEvolveBtn" style="width:100%; background:#e67e22; color:white; border:none; padding:7px; border-radius:4px;">✨ 進化</button>
+      <p id="pmEvolveResult" style="font-size:11px; margin-top:6px; display:none;"></p>
+    </div>
+    <div id="pmTrades"></div>
+    <div class="modal-btns">
+      <button onclick="addToPet()">＋ 模擬加碼</button>
+      <button onclick="quickSell()" style="color:#e74c3c;">賣出</button>
+    </div>
+  </div>
+</div>
+
+<!-- 孵化 Modal -->
+<div class="modal-bg" id="buyModal" onclick="closeModal('buyModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('buyModal')">×</button>
+    <h2>🛒 模擬買入</h2>
+    <div class="coin-grid" id="coinGrid"></div>
+    <label style="font-size:12px;display:block;margin-bottom:4px;">投入金額（模擬資金，不是真實下單；即時行情以 USDT 近似美元）</label>
+    <input type="number" id="buyAmt" placeholder="最低 100" min="100" oninput="updateBuyPreview()">
+    <p class="hint" id="buyHint"></p>
+    <button style="width:100%;background:#4a90d9;color:white;border:none;padding:8px;border-radius:4px;" onclick="confirmBuy()">確認模擬買入</button>
+    <div class="inline-err" id="buyErr"></div>
+  </div>
+</div>
+
+<!-- 賣出 Modal -->
+<div class="modal-bg" id="sellModal" onclick="closeModal('sellModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal('sellModal')">×</button>
+    <h2>結算模擬持倉</h2>
+    <label style="font-size:12px;display:block;margin-bottom:4px;">選擇寵物</label>
+    <select id="sellSel" onchange="updateSellPreview()"></select>
+    <p class="hint" id="sellHint" style="white-space:pre-line;"></p>
+    <button style="width:100%;background:#e74c3c;color:white;border:none;padding:8px;border-radius:4px;" onclick="confirmSell()">確認賣出</button>
+    <div class="inline-err" id="sellErr"></div>
+  </div>
+</div>
+
+<script>
+const COINS = {
+  BTC:  { name:'比特貓',  emoji:'🐱', animal:'cat',     color:'#f2a93b', basePrice:67000 },
+  ETH:  { name:'以太兔',  emoji:'🐰', animal:'rabbit',  color:'#8e83e8', basePrice:3200  },
+  SOL:  { name:'索拉熊',  emoji:'🐻', animal:'bear',    color:'#a77be8', basePrice:180   },
+  BNB:  { name:'幣安狗',  emoji:'🐶', animal:'dog',     color:'#e6b949', basePrice:580   },
+  DOGE: { name:'狗狗鼠',  emoji:'🐹', animal:'hamster', color:'#c99a62', basePrice:0.18  },
+};
+const MARKET_API_BASE='https://data-api.binance.vision';
+const MARKET_PAIRS={BTC:'BTCUSDT',ETH:'ETHUSDT',SOL:'SOLUSDT',BNB:'BNBUSDT',DOGE:'DOGEUSDT'};
+const MARKET_REFRESH_MS=60*1000;
+// 報價有效期：允許錯過一次更新（含請求逾時），避免每次輪詢或網路稍慢就鎖住買賣
+const MARKET_STALE_MS=MARKET_REFRESH_MS*2+15000;
+const STAGES = ['幼年期','成長期','成熟期'];
+
+let state = { balance:10000, initialBalance:10000, totalBuyVolume:0, buyVolumeHistoryComplete:true, pets:[], collection:{}, prices:{}, priceHistory:{}, priceHistoryMode:'', marketMode:'live', marketStats:{}, marketMeta:{status:'尚未連線',lastUpdatedAt:null,liveReady:false}, portfolios:{}, marketData:{}, nextId:1, realizedPnl:0 };
+const cloneData = value => JSON.parse(JSON.stringify(value));
+function createFreshPortfolio(){return {balance:10000,initialBalance:10000,totalBuyVolume:0,buyVolumeHistoryComplete:true,pets:[],collection:{},nextId:1,realizedPnl:0};}
+function createEmptyMarketData(mode){return {prices:{},priceHistory:{},priceHistoryMode:mode,marketStats:{},marketMeta:{status:mode==='live'?'尚未連線':'模擬行情尚未開始',lastUpdatedAt:null,liveReady:false}};}
+function captureActivePortfolio(){return {balance:state.balance,initialBalance:state.initialBalance,totalBuyVolume:state.totalBuyVolume,buyVolumeHistoryComplete:state.buyVolumeHistoryComplete,pets:cloneData(state.pets),collection:cloneData(state.collection||{}),nextId:state.nextId,realizedPnl:state.realizedPnl};}
+function captureActiveMarketData(){return {prices:cloneData(state.prices),priceHistory:cloneData(state.priceHistory),priceHistoryMode:state.priceHistoryMode,marketStats:cloneData(state.marketStats),marketMeta:cloneData(state.marketMeta)};}
+function persistActiveMode(){
+  if(!state.portfolios||!state.marketData) return;
+  state.portfolios[state.marketMode]=captureActivePortfolio();
+  state.marketData[state.marketMode]=captureActiveMarketData();
+}
+function restoreMode(mode){
+  state.marketMode=mode;
+  const portfolio=state.portfolios[mode]||createFreshPortfolio();
+  state.balance=Number(portfolio.balance)||0;
+  state.initialBalance=Number(portfolio.initialBalance)>0?Number(portfolio.initialBalance):10000;
+  state.totalBuyVolume=Number(portfolio.totalBuyVolume)||0;
+  state.buyVolumeHistoryComplete=portfolio.buyVolumeHistoryComplete!==false;
+  state.pets=Array.isArray(portfolio.pets)?cloneData(portfolio.pets):[];
+  state.collection=portfolio.collection&&typeof portfolio.collection==='object'&&!Array.isArray(portfolio.collection)?cloneData(portfolio.collection):{};
+  state.nextId=Number(portfolio.nextId)||1;
+  state.realizedPnl=Number(portfolio.realizedPnl)||0;
+  const market=state.marketData[mode]||createEmptyMarketData(mode);
+  state.prices=market.prices&&typeof market.prices==='object'?cloneData(market.prices):{};
+  state.priceHistory=market.priceHistory&&typeof market.priceHistory==='object'?cloneData(market.priceHistory):{};
+  state.priceHistoryMode=mode;
+  state.marketStats=market.marketStats&&typeof market.marketStats==='object'?cloneData(market.marketStats):{};
+  state.marketMeta=market.marketMeta&&typeof market.marketMeta==='object'?cloneData(market.marketMeta):createEmptyMarketData(mode).marketMeta;
+}
+const save = () => { try { persistActiveMode(); localStorage.setItem('cpv4', JSON.stringify(state)); } catch(e){} };
+const load = () => {
+  let savedState=null,hasSavedBuyVolume=false;
+  try {
+    const serialized=localStorage.getItem('cpv4');
+    if(serialized){
+      savedState=JSON.parse(serialized);
+      state={...state,...savedState};
+    }
+    delete state.walletBonus;
+    const hasPortfolioSchema=savedState&&savedState.portfolios&&Object.keys(savedState.portfolios).length>0;
+    if(!['live','simulation'].includes(state.marketMode)) state.marketMode='live';
+    if(!hasPortfolioSchema){
+      const storedMode=savedState&&['live','simulation'].includes(savedState.marketMode)?savedState.marketMode:(savedState?'simulation':state.marketMode);
+      state.marketMode=storedMode;
+      state.portfolios={live:createFreshPortfolio(),simulation:createFreshPortfolio()};
+      state.marketData={live:createEmptyMarketData('live'),simulation:createEmptyMarketData('simulation')};
+      state.portfolios[storedMode]=captureActivePortfolio();
+      state.marketData[storedMode]=captureActiveMarketData();
+      hasSavedBuyVolume=Boolean(savedState&&(Object.prototype.hasOwnProperty.call(savedState,'totalBuyVolume')||Object.prototype.hasOwnProperty.call(savedState.portfolios?.[storedMode]||{},'totalBuyVolume')));
+    }else{
+      state.portfolios={...state.portfolios};
+      state.marketData=state.marketData&&typeof state.marketData==='object'?{...state.marketData}:{};
+      for(const mode of ['live','simulation']){
+        if(!state.portfolios[mode]) state.portfolios[mode]=createFreshPortfolio();
+        if(!state.marketData[mode]) state.marketData[mode]=createEmptyMarketData(mode);
+      }
+      const savedActivePortfolio=state.portfolios[state.marketMode];
+      hasSavedBuyVolume=Object.prototype.hasOwnProperty.call(savedActivePortfolio,'totalBuyVolume');
+      restoreMode(state.marketMode);
+    }
+    state.initialBalance=Number(state.initialBalance)>0?Number(state.initialBalance):10000;
+    if(!['live','simulation'].includes(state.marketMode)) state.marketMode='live';
+    if(!state.marketStats||typeof state.marketStats!=='object') state.marketStats={};
+    if(!state.marketMeta||typeof state.marketMeta!=='object') state.marketMeta={status:'尚未連線',lastUpdatedAt:null,liveReady:false};
+    if(state.priceHistoryMode!==state.marketMode){state.priceHistory={};state.priceHistoryMode=state.marketMode;}
+    if(!state.priceHistory || typeof state.priceHistory!=='object') state.priceHistory={};
+    for(const sym in COINS){
+      if(!Array.isArray(state.priceHistory[sym])) state.priceHistory[sym]=[];
+      state.priceHistory[sym]=state.priceHistory[sym].filter(point=>Number.isFinite(Number(point.hour))&&Number.isFinite(Number(point.high))&&Number.isFinite(Number(point.low)));
+    }
+    state.realizedPnl=Number(state.realizedPnl)||0;
+    if(!Array.isArray(state.pets)) state.pets=[];
+    if(!state.collection||typeof state.collection!=='object'||Array.isArray(state.collection)) state.collection={};
+    state.pets.forEach(pet=>{
+      pet.qty=Number(pet.qty)||0;
+      pet.cost=Number(pet.cost)||pet.qty*(Number(pet.costPrice)||0);
+      pet.costPrice=pet.qty?pet.cost/pet.qty:0;
+      if(!Array.isArray(pet.trades)) pet.trades=[{type:'buy',amount:pet.cost,qty:pet.qty,price:pet.costPrice,at:pet.bornAt||Date.now(),legacy:true}];
+      recordPetForm(pet);
+    });
+    if(hasSavedBuyVolume&&Number.isFinite(Number(state.totalBuyVolume))&&Number(state.totalBuyVolume)>=0){
+      state.totalBuyVolume=Number(state.totalBuyVolume);
+      state.buyVolumeHistoryComplete=state.buyVolumeHistoryComplete!==false;
+    }else{
+      state.totalBuyVolume=state.pets.reduce((total,pet)=>total+(pet.trades||[]).reduce((sum,trade)=>sum+(trade.type==='sell'?0:Number(trade.amount)||0),0),0);
+      state.buyVolumeHistoryComplete=!savedState;
+    }
+    persistActiveMode();
+  } catch(e){}
+  if(!Number.isFinite(state.totalBuyVolume)||state.totalBuyVolume<0) state.totalBuyVolume=0;
+};
+
+function initPrices() {
+  for (const sym in COINS) {
+    const saved=state.prices[sym];
+    if(!saved || !Number.isFinite(Number(saved.cur)) || Number(saved.cur)<=0){
+      state.prices[sym]={cur:COINS[sym].basePrice,prev:COINS[sym].basePrice};
+    }else{
+      state.prices[sym]={cur:Number(saved.cur),prev:Number(saved.prev)||Number(saved.cur)};
+    }
+  }
+  if(state.marketMode==='simulation') recordPriceHistory();
+}
+const PRICE_HOUR=60*60*1000;
+const PRICE_WINDOW=7*24*PRICE_HOUR;
+function recordPriceHistory(now=Date.now()){
+  const hour=Math.floor(now/PRICE_HOUR)*PRICE_HOUR;
+  for(const sym in COINS){
+    const price=state.prices[sym].cur;
+    if(!Array.isArray(state.priceHistory[sym])) state.priceHistory[sym]=[];
+    const points=state.priceHistory[sym];
+    let point=points[points.length-1];
+    if(!point||point.hour!==hour){
+      point={hour,open:price,high:price,low:price,close:price,count:0};
+      points.push(point);
+    }
+    point.high=Math.max(Number(point.high)||price,price);
+    point.low=Math.min(Number(point.low)||price,price);
+    point.close=price;
+    point.count=(Number(point.count)||0)+1;
+    while(points.length&&points[0].hour<now-PRICE_WINDOW-PRICE_HOUR) points.shift();
+  }
+}
+function getMarketRange(sym,now=Date.now()){
+  const cutoff=now-PRICE_WINDOW;
+  const points=(state.priceHistory[sym]||[]).filter(point=>point.hour>=cutoff-PRICE_HOUR&&point.hour<=now&&Number.isFinite(Number(point.high))&&Number.isFinite(Number(point.low))).sort((a,b)=>a.hour-b.hour);
+  if(!points.length) return null;
+  const high=Math.max(...points.map(point=>Number(point.high)));
+  const low=Math.min(...points.map(point=>Number(point.low)));
+  const current=state.prices[sym].cur;
+  const firstHour=points[0].hour,lastHour=points[points.length-1].hour;
+  const spanMs=Math.max(0,now-firstHour);
+  const hasSevenDayCoverage=points.length>=168&&firstHour<=cutoff+PRICE_HOUR&&lastHour>=now-PRICE_HOUR&&points.every((point,index)=>index===0||point.hour-points[index-1].hour<=PRICE_HOUR*1.5);
+  return {high,low,current,spanDays:Math.min(7,spanMs/(24*PRICE_HOUR)),hasSevenDayCoverage,samples:points.reduce((sum,point)=>sum+(Number(point.count)||0),0)};
+}
+function renderMarketRange(sym){
+  const el=document.getElementById('pmMarketRange');
+  const range=getMarketRange(sym);
+  const isLive=state.marketMode==='live';
+  const quoteFresh=!isLive||hasUsableMarketQuote();
+  const title=isLive?'近 7 日行情區間':'模擬行情區間';
+  const freshnessNote=isLive&&!quoteFresh
+    ?(state.marketMeta.lastUpdatedAt
+      ?(state.marketMeta.status==='正在連線至行情來源'?'行情更新中，以下暫顯最後有效資料。':'即時報價目前不可用，以下暫顯最後有效資料。')
+      :'尚未取得新鮮即時報價；若有舊資料，請勿視為目前行情。')
+    :'';
+  if(!range||range.samples<2){
+    const message=isLive?'正在載入近 7 日 K 線；若連線失敗，請查看上方行情來源狀態。':'正在累積模擬行情紀錄，請保持頁面開啟。';
+    el.innerHTML=`<div class="market-range-title">${title}</div><div class="market-range-status">尚無足夠區間資料</div><div class="market-range-note">${freshnessNote||message}</div>`;
+    return;
+  }
+  const nearLow=range.current<=range.low*1.02;
+  const nearHigh=range.current>=range.high*0.98;
+  const spread=range.high-range.low;
+  const position=spread>0?Math.max(0,Math.min(100,(range.current-range.low)/spread*100)):50;
+  const periodName=isLive&&range.hasSevenDayCoverage?'近 7 日':range.hasSevenDayCoverage?'近 7 日模擬':'目前追蹤期間';
+  let status='位於近期高低點之間';
+  if(!quoteFresh) status=state.marketMeta.lastUpdatedAt?'報價尚未更新，暫不判斷目前區間位置':'尚未取得新鮮報價，暫不判斷目前區間位置';
+  else if(spread<=Math.max(range.current*0.001,0.0000001)) status='價格區間仍太小，持續記錄中';
+  else if(nearLow) status=`接近${range.hasSevenDayCoverage?'近 7 日':'目前追蹤期間'}低點`;
+  else if(nearHigh) status=`接近${range.hasSevenDayCoverage?'近 7 日':'目前追蹤期間'}高點`;
+  const trackedHours=range.spanDays*24;
+  const trackedDuration=trackedHours<1?'< 1 小時':trackedHours<24?`${Math.round(trackedHours)} 小時`:`${range.spanDays.toFixed(1)} 天`;
+  const coverage=range.hasSevenDayCoverage?(isLive?'最近 168 根小時 K 線':'已涵蓋完整 7 日'):`已追蹤約 ${trackedDuration}`;
+  const decimals=sym==='DOGE'?4:2;
+  const dataNote=isLive?'資料來自 Binance Spot；以 USDT 報價近似美元，頁面關閉時不會即時更新。高低點為區間統計，不代表買賣訊號。':'只統計此頁開啟時記錄的隨機模擬行情；高低點代表模擬價格位置，不等同個人盈虧。';
+  el.innerHTML=`
+    <div class="market-range-title">${periodName}${isLive?'行情區間':'價格區間'}</div>
+    <div class="market-range-metrics">
+      <span>${quoteFresh?'目前價格':'最後有效價格'}</span><strong>$${range.current.toFixed(decimals)}</strong>
+      <span>追蹤高點</span><strong>$${range.high.toFixed(decimals)}</strong>
+      <span>追蹤低點</span><strong>$${range.low.toFixed(decimals)}</strong>
+      <span>${quoteFresh?'區間位置':'最後報價區間位置'}</span><strong>${position.toFixed(0)}%</strong>
+    </div>
+    <div class="market-range-status">${status}</div>
+    <div class="market-range-note">${coverage}；${freshnessNote||dataNote}</div>`;
+}
+function refreshPetMarketView(pet){
+  const current=state.prices[pet.sym].cur;
+  const decimals=pet.sym==='DOGE'?4:2;
+  const isLive=state.marketMode==='live',quoteFresh=!isLive||hasUsableMarketQuote();
+  const staleNote=isLive&&!quoteFresh?(state.marketMeta.lastUpdatedAt?'行情更新中或已逾期，盈虧與表情仍依最後有效報價估算。':'尚未取得新鮮報價，盈虧與表情暫依本機保存資料估算。'):'';
+  const pnl=pnlAmt(pet),pnlPercent=pnlPct(pet),marketMove=isLive?(Number(state.marketStats[pet.sym]?.change24h)||0):pctChg(pet.sym),mood=getMood(pet);
+  document.getElementById('pmCurrentPrice').textContent=`$${current.toFixed(decimals)}${quoteFresh?'':'（最後有效）'}`;
+  document.getElementById('pmMarketValue').textContent=`$${currentValue(pet).toFixed(0)} 模擬美元${quoteFresh?'':'（依最後有效報價）'}`;
+  const pnlEl=document.getElementById('pmPnl');
+  pnlEl.className=quoteFresh?(pnl>=0?'up':'dn'):'';
+  pnlEl.textContent=`${pnl>=0?'+':''}${pnl.toFixed(0)}（${pnlPercent.toFixed(1)}%）`;
+  const moveEl=document.getElementById('pmMarketMove');
+  moveEl.className=quoteFresh?(marketMove>=0?'up':'dn'):'';
+  moveEl.textContent=quoteFresh?`${marketMove>=0?'+':''}${marketMove.toFixed(2)}%`:'等待即時報價';
+  document.getElementById('pmMarketMoveLabel').textContent=isLive?'24 小時價格變動':'本次模擬行情變動';
+  renderBigPet(pet,mood);
+  document.getElementById('pmInsight').textContent=`狀態：${mood.label}。表情依個人未實現盈虧呈現；平均成本是累積模擬投入除以持有量。未實現盈虧以${quoteFresh?'目前':'最後有效'}報價估算，賣出前尚未結算；近期高低點只表示行情位置，不是買賣訊號。${staleNote}`;
+  renderMarketRange(pet.sym);
+}
+function tickPrices() {
+  for (const sym in COINS) {
+    const p=state.prices[sym]; p.prev=p.cur;
+    p.cur=Math.max(p.cur*(1+(Math.random()-0.48)*0.02), COINS[sym].basePrice*0.3);
+  }
+  recordPriceHistory();
+  if(state.marketMode==='simulation') state.marketMeta={...state.marketMeta,lastUpdatedAt:Date.now()};
+}
+let marketRefreshBusy=false;
+let marketRequestToken=0;
+let marketPollTimer=null;
+async function fetchMarketJson(url){
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),12000);
+  try{
+    const response=await fetch(url,{cache:'no-store',signal:controller.signal});
+    if(!response.ok) throw new Error(`行情服務回應 ${response.status}`);
+    return await response.json();
+  }finally{clearTimeout(timeout);}
+}
+function hasUsableMarketQuote(){
+  if(state.marketMode!=='live') return true;
+  const updatedAt=Number(state.marketMeta?.lastUpdatedAt);
+  const age=Date.now()-updatedAt;
+  return Boolean(state.marketMeta?.liveReady)&&Number.isFinite(updatedAt)&&age>=0&&age<=MARKET_STALE_MS;
+}
+function refreshTradePreviews(){
+  if(document.getElementById('buyModal').classList.contains('open')) updateBuyPreview();
+  if(document.getElementById('sellModal').classList.contains('open')) updateSellPreview();
+}
+async function refreshLiveMarket(loadHistory=false){
+  if(state.marketMode!=='live'||marketRefreshBusy) return;
+  marketRefreshBusy=true;
+  const requestToken=++marketRequestToken;
+  // 已有新鮮報價時，背景更新不清除 liveReady，使用者在更新期間仍可用上一筆報價買賣
+  if(!hasUsableMarketQuote()){
+    state.marketMeta={...state.marketMeta,status:'正在連線至行情來源',liveReady:false,error:''};
+    renderPriceBar();renderSidebar();refreshOpenPetModal();refreshTradePreviews();
+  }
+  const pairs=Object.values(MARKET_PAIRS);
+  const symbols=encodeURIComponent(JSON.stringify(pairs));
+  try{
+    const tickerPromise=fetchMarketJson(`${MARKET_API_BASE}/api/v3/ticker/24hr?symbols=${symbols}`);
+    const historyPromise=loadHistory?Promise.allSettled(Object.entries(MARKET_PAIRS).map(async([sym,pair])=>{
+      const rows=await fetchMarketJson(`${MARKET_API_BASE}/api/v3/klines?symbol=${pair}&interval=1h&limit=168`);
+      if(!Array.isArray(rows)) throw new Error(`${pair} 歷史資料格式錯誤`);
+      return [sym,rows];
+    })):Promise.resolve([]);
+    const [tickerRows,historyResults]=await Promise.all([tickerPromise,historyPromise]);
+    if(requestToken!==marketRequestToken||state.marketMode!=='live') return;
+    if(!Array.isArray(tickerRows)) throw new Error('即時行情資料格式錯誤');
+    const byPair=new Map(tickerRows.map(row=>[row.symbol,row]));
+    const now=Date.now();
+    const updatedPrices=[];
+    for(const [sym,pair] of Object.entries(MARKET_PAIRS)){
+      const row=byPair.get(pair),price=Number(row?.lastPrice);
+      if(!Number.isFinite(price)||price<=0) throw new Error(`無法取得 ${pair} 有效價格`);
+      updatedPrices.push({sym,price,row});
+    }
+    for(const {sym,price,row} of updatedPrices){
+      const previous=state.prices[sym]?.cur||price;
+      state.prices[sym]={cur:price,prev:previous};
+      state.marketStats[sym]={change24h:Number(row.priceChangePercent),high24h:Number(row.highPrice),low24h:Number(row.lowPrice)};
+    }
+    let historyErrors=0;
+    if(loadHistory){
+      for(const result of historyResults){
+        if(result.status!=='fulfilled'){historyErrors++;continue;}
+        const [sym,rows]=result.value;
+        state.priceHistory[sym]=rows.map(candle=>({hour:Number(candle[0]),open:Number(candle[1]),high:Number(candle[2]),low:Number(candle[3]),close:Number(candle[4]),count:1})).filter(point=>Number.isFinite(point.hour)&&Number.isFinite(point.high)&&Number.isFinite(point.low));
+      }
+    }
+    state.priceHistoryMode='live';
+    recordPriceHistory(now);
+    state.marketMeta={status:historyErrors?'即時行情已連線，部分歷史資料未載入':'即時行情已更新',lastUpdatedAt:now,liveReady:true,source:'Binance Spot 公開行情'};
+    renderPriceBar();renderPets();renderSidebar();refreshOpenPetModal();refreshTradePreviews();save();
+  }catch(error){
+    if(requestToken===marketRequestToken&&state.marketMode==='live'){
+      const reason=error.name==='AbortError'?'連線逾時':error.message||'無法連線';
+      // 不直接清除 liveReady：上一筆報價在有效期內仍可使用，逾期後由 hasUsableMarketQuote() 自動停用交易
+      state.marketMeta={...state.marketMeta,status:state.marketMeta.lastUpdatedAt?'更新失敗，顯示上次資料':'連線失敗，請重試或切換模擬行情',error:reason};
+      renderPriceBar();renderSidebar();refreshOpenPetModal();refreshTradePreviews();save();
+    }
+  }finally{
+    if(requestToken===marketRequestToken) marketRefreshBusy=false;
+  }
+}
+function refreshOpenPetModal(){
+  if(activePetId===null||!document.getElementById('petModal').classList.contains('open')) return;
+  const pet=state.pets.find(item=>item.id==activePetId);
+  if(pet) refreshPetMarketView(pet);
+}
+function startMarketPolling(){
+  if(marketPollTimer) clearInterval(marketPollTimer);
+  marketPollTimer=setInterval(()=>refreshLiveMarket(false),MARKET_REFRESH_MS);
+}
+// 分頁在背景時計時器會被瀏覽器降頻，切回來時若報價已逾期就立即更新
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&state.marketMode==='live'&&!hasUsableMarketQuote()) refreshLiveMarket(false);
+});
+function setMarketMode(mode){
+  if(!['live','simulation'].includes(mode)||mode===state.marketMode) return;
+  if(mintInFlight){showToast('鑄造交易進行中，完成前無法切換行情模式');return;}
+  persistActiveMode();
+  marketRequestToken++;marketRefreshBusy=false;
+  closeModal('petModal');closeModal('buyModal');closeModal('sellModal');closeModal('collectionModal');activePetId=null;
+  for(const id in petEls) petEls[id].el.remove();
+  petEls={};
+  restoreMode(mode);
+  initPrices();
+  if(mode==='simulation'){
+    if(marketPollTimer){clearInterval(marketPollTimer);marketPollTimer=null;}
+    state.marketMeta={...state.marketMeta,status:'模擬行情運作中',lastUpdatedAt:Date.now(),liveReady:true,source:'本機隨機模擬',error:''};
+    tickPrices();
+    renderPriceBar();renderPets();renderSidebar();refreshOpenPetModal();save();
+  }else{
+    state.marketMeta={...state.marketMeta,status:'正在連線至行情來源',liveReady:false,source:'Binance Spot 公開行情',error:''};
+    renderPriceBar();save();refreshLiveMarket(true);startMarketPolling();
+  }
+  const button=document.getElementById('marketModeBtn');
+  if(button) button.textContent=mode==='live'?'切到模擬行情':'切到即時行情';
+}
+function toggleMarketMode(){setMarketMode(state.marketMode==='live'?'simulation':'live');}
+function retryMarketSource(){
+  if(state.marketMode!=='live') setMarketMode('live');
+  else refreshLiveMarket(true);
+}
+const pctChg = sym => { const p=state.prices[sym]; return (p.cur-p.prev)/p.prev*100; };
+const currentValue = pet => state.prices[pet.sym].cur*pet.qty;
+const pnlAmt = pet => currentValue(pet)-pet.cost;
+const pnlPct = pet => pet.cost>0?pnlAmt(pet)/pet.cost*100:0;
+const EVOLUTION_RATIOS=[0,0.05,0.15];
+const evolutionThreshold=stage=>state.initialBalance*EVOLUTION_RATIOS[Math.min(stage,2)];
+function evolutionProgress(pet){
+  const stage=getStage(pet);
+  if(stage>=2) return {required:evolutionThreshold(2),previous:evolutionThreshold(1),progress:1,ready:true};
+  const required=evolutionThreshold(stage+1);
+  const previous=evolutionThreshold(stage);
+  const progress=Math.max(0,Math.min(1,(pet.cost-previous)/(required-previous)));
+  return {required,progress,ready:pet.cost>=required};
+}
+function getMood(pet){
+  const p=pnlPct(pet);
+  if(p>=5) return {emoji:'😺',label:'明顯獲利'};
+  if(p>=1) return {emoji:'😊',label:'小幅獲利'};
+  if(p>-1) return {emoji:'😐',label:'接近成本'};
+  if(p>-5) return {emoji:'😿',label:'小幅虧損'};
+  return {emoji:'🙀',label:'明顯虧損'};
+}
+function getStage(pet) {
+  return pet.stage ?? 0;
+}
+function recordPetForm(pet){
+  if(!pet||!COINS[pet.sym]) return;
+  if(!state.collection||typeof state.collection!=='object') state.collection={};
+  const reached=Math.max(0,Math.min(2,Number(getStage(pet))||0));
+  for(let stage=0;stage<=reached;stage++) state.collection[`${pet.sym}:${stage}`]=true;
+}
+
+// ── 稀有度機制 ──────────────────────────────────────────────
+// 普通60% / 稀有25% / 史詩12% / 隱藏3%
+const RARITIES = ['普通','稀有','史詩','隱藏'];
+const RARITY_EMOJI = ['','✨','💎','🌟'];
+
+// 渲染
+let petEls={};
+function buildPetSvg(sym,stage=0,pnl=0,rarity=-1){
+  const coin=COINS[sym]||COINS.BTC;
+  const color=coin.color,stroke='#584a43';
+  const ears={
+    cat:`<path d="M22 43 21 17 Q21 11 27 16 L44 33Z M78 43 79 17 Q79 11 73 16 L56 33Z" fill="${color}" stroke="${stroke}" stroke-width="3" stroke-linejoin="round"/><path d="m28 32-1-9 9 8m36 1 1-9-9 8" fill="#f4b5bd"/>`,
+    rabbit:`<ellipse cx="39" cy="26" rx="9" ry="23" transform="rotate(-10 39 26)" fill="${color}" stroke="${stroke}" stroke-width="3"/><ellipse cx="61" cy="26" rx="9" ry="23" transform="rotate(10 61 26)" fill="${color}" stroke="${stroke}" stroke-width="3"/><ellipse cx="39" cy="25" rx="3.5" ry="14" fill="#f4b5bd"/><ellipse cx="61" cy="25" rx="3.5" ry="14" fill="#f4b5bd"/>`,
+    bear:`<circle cx="27" cy="36" r="12" fill="${color}" stroke="${stroke}" stroke-width="3"/><circle cx="73" cy="36" r="12" fill="${color}" stroke="${stroke}" stroke-width="3"/><circle cx="27" cy="36" r="5" fill="#f4b5bd"/><circle cx="73" cy="36" r="5" fill="#f4b5bd"/>`,
+    dog:`<path d="M25 36 Q11 25 14 48 Q16 63 32 60Z M75 36 Q89 25 86 48 Q84 63 68 60Z" fill="${color}" stroke="${stroke}" stroke-width="3"/><ellipse cx="22" cy="47" rx="4" ry="8" fill="#bd7d62"/><ellipse cx="78" cy="47" rx="4" ry="8" fill="#bd7d62"/>`,
+    hamster:`<circle cx="29" cy="38" r="9" fill="${color}" stroke="${stroke}" stroke-width="3"/><circle cx="71" cy="38" r="9" fill="${color}" stroke="${stroke}" stroke-width="3"/><circle cx="29" cy="38" r="4" fill="#f4b5bd"/><circle cx="71" cy="38" r="4" fill="#f4b5bd"/>`
+  }[coin.animal]||'';
+  const mouth=pnl>=0?'<path d="M43 64 Q50 72 57 64" fill="none" stroke="#684b47" stroke-width="3" stroke-linecap="round"/>':'<path d="M43 69 Q50 60 57 69" fill="none" stroke="#684b47" stroke-width="3" stroke-linecap="round"/>';
+  const stageMark=stage>=2?'<path d="m38 20 3-8 9 5 9-5 3 8" fill="#ffd45b" stroke="#9a7425" stroke-width="2" stroke-linejoin="round"/>':stage===1?'<path d="M50 22 Q43 14 39 18 Q40 25 49 25 M50 22 Q56 13 62 17 Q61 24 51 25" fill="#78b875" stroke="#4a8a50" stroke-width="1.5"/>':'';
+  const sparkle=rarity>=2?'<path d="m17 57 2 5 5 2-5 2-2 5-2-5-5-2 5-2zm66-23 2 4 4 2-4 1-2 4-1-4-4-1 4-2z" fill="#ffd95e"/>':'';
+  const brows=pnl<-5?'<path d="m37 44 8 2m10-2 8-2" stroke="#684b47" stroke-width="2.5" stroke-linecap="round"/>':'';
+  return `<svg viewBox="0 0 100 100" role="img" aria-label="${coin.name}，${STAGES[stage]||STAGES[0]}" xmlns="http://www.w3.org/2000/svg"><title>${coin.name} ${STAGES[stage]||STAGES[0]}</title>${ears}<ellipse cx="50" cy="56" rx="32" ry="29" fill="${color}" stroke="${stroke}" stroke-width="3"/><ellipse cx="50" cy="63" rx="19" ry="13" fill="#fff0dc"/><circle cx="39" cy="51" r="3.3" fill="#352f35"/><circle cx="61" cy="51" r="3.3" fill="#352f35"/>${brows}<circle cx="33" cy="60" r="4" fill="#ef9ba2" opacity=".65"/><circle cx="67" cy="60" r="4" fill="#ef9ba2" opacity=".65"/><path d="M47 58 Q50 55 53 58 Q53 62 50 63 Q47 62 47 58" fill="#7d5550"/>${mouth}${stageMark}${sparkle}</svg>`;
+}
+function renderPets() {
+  const scene=document.getElementById('scene');
+  state.pets.forEach(pet=>{
+    const stage=getStage(pet), pnlP=pnlPct(pet), isUp=pnlP>=0;
+    const coin=COINS[pet.sym]||COINS.BTC, sz=[54,66,78][stage]||54, mood=getMood(pet);
+    if (!petEls[pet.id]) {
+      const el=document.createElement('div');
+      el.className='pet-el'; el.style.left=pet.x+'px'; el.style.top=pet.y+'px';
+      el.onclick=()=>openPetModal(pet.id); scene.appendChild(el);
+      petEls[pet.id]={el,dx:(Math.random()-0.5)*0.6,dy:(Math.random()-0.5)*0.3};
+    }
+    petEls[pet.id].el.innerHTML=`
+      <span class="pet-emoji ${pet.rarity>=2?'pet-glow':''}" style="width:${sz}px;height:${sz}px">${buildPetSvg(pet.sym,stage,pnlP,pet.rarity??-1)}</span>
+      <span class="pet-tag">${(pet.rarity??-1)>=0?RARITY_EMOJI[pet.rarity]:''}${pet.isOnChain?'⛓ ':''}${coin.name}${pet.isOnChain?` #${pet.chainTokenId}`:''}</span>
+      <span class="pet-pnl ${isUp?'up':'dn'}"><span class="pet-mood" title="${mood.label}">${mood.emoji}</span> ${isUp?'+':''}${pnlP.toFixed(1)}%</span>`;
+  });
+  for (const id in petEls) {
+    if (!state.pets.find(p=>p.id==id)) { petEls[id].el.remove(); delete petEls[id]; }
+  }
+}
+function openCollectionModal(){
+  const grid=document.getElementById('collectionGrid');
+  const forms=Object.entries(COINS).flatMap(([sym,coin])=>STAGES.map((stageName,stage)=>({sym,coin,stage,unlocked:Boolean(state.collection?.[`${sym}:${stage}`])})));
+  const unlocked=forms.filter(form=>form.unlocked).length;
+  const percent=forms.length?Math.round(unlocked/forms.length*100):0;
+  document.getElementById('collectionSummary').textContent=`已解鎖 ${unlocked} / ${forms.length} 種成長形態（${percent}%）｜${state.marketMode==='live'?'交易所行情帳戶':'隨機模擬行情帳戶'}`;
+  grid.innerHTML=forms.map(({sym,coin,stage,unlocked})=>`<div class="collection-card ${unlocked?'':'locked'}">${unlocked?`<div class="collection-avatar">${buildPetSvg(sym,stage,0,-1)}</div>`:'<div class="collection-question">?</div>'}<strong>${unlocked?coin.name:'未知寵物'}</strong><span class="collection-status">${unlocked?`${STAGES[stage]}・${sym}`:`${STAGES[stage]}・尚未解鎖`}</span></div>`).join('');
+  openModal('collectionModal');
+}
+function movePets() {
+  const sc=document.getElementById('scene'), W=sc.offsetWidth||600, H=sc.offsetHeight||500;
+  state.pets.forEach(pet=>{
+    const info=petEls[pet.id]; if(!info) return;
+    const el=info.el, w=el.offsetWidth||60, h=el.offsetHeight||80;
+    if(Math.random()<0.02){info.dx+=(Math.random()-0.5)*0.3;info.dy+=(Math.random()-0.5)*0.15;}
+    info.dx=Math.max(-0.7,Math.min(0.7,info.dx)); info.dy=Math.max(-0.35,Math.min(0.35,info.dy));
+    pet.x+=info.dx; pet.y+=info.dy;
+    if(pet.x<10){pet.x=10;info.dx=Math.abs(info.dx);}
+    if(pet.x>W-w-10){pet.x=W-w-10;info.dx=-Math.abs(info.dx);}
+    if(pet.y<10){pet.y=10;info.dy=Math.abs(info.dy);}
+    if(pet.y>H-h-10){pet.y=H-h-10;info.dy=-Math.abs(info.dy);}
+    el.style.left=pet.x+'px'; el.style.top=pet.y+'px';
+  });
+}
+function renderSidebar() {
+  // 無條件捨去，避免顯示 $100 但實際只有 99.6 而買不了 100
+  document.getElementById('balDisplay').textContent='$'+Math.floor(state.balance).toLocaleString();
+  document.getElementById('startBalanceDisplay').textContent='$'+Math.round(state.initialBalance).toLocaleString();
+  document.getElementById('portfolioTitle').textContent=state.marketMode==='live'?'交易所行情帳戶':'隨機模擬行情帳戶';
+  const invested=state.pets.reduce((sum,pet)=>sum+pet.cost,0);
+  const value=state.pets.reduce((sum,pet)=>sum+currentValue(pet),0);
+  const investedShare=state.initialBalance>0?invested/state.initialBalance*100:0;
+  const buyVolumeShare=state.initialBalance>0?state.totalBuyVolume/state.initialBalance*100:0;
+  const unrealized=value-invested;
+  const returnPct=invested>0?unrealized/invested*100:0;
+  const summary=document.getElementById('portfolioSummary');
+  summary.innerHTML=`
+    <div class="portfolio-metric"><span>目前持倉成本</span><strong>$${invested.toFixed(0)}（起始資金 ${investedShare.toFixed(1)}%）</strong></div>
+    <div class="portfolio-metric"><span>歷史累計模擬買入</span><strong>$${state.totalBuyVolume.toFixed(0)}（${buyVolumeShare.toFixed(1)}%）</strong></div>
+    <div class="portfolio-metric"><span>目前模擬市值</span><strong>$${value.toFixed(0)}</strong></div>
+    <div class="portfolio-metric"><span>未實現盈虧</span><strong class="${unrealized>=0?'up':'dn'}">${unrealized>=0?'+':''}$${unrealized.toFixed(0)} (${returnPct.toFixed(1)}%)</strong></div>
+    <div class="portfolio-metric"><span>已結算盈虧</span><strong class="${state.realizedPnl>=0?'up':'dn'}">${state.realizedPnl>=0?'+':''}$${state.realizedPnl.toFixed(0)}</strong></div>
+    <p class="portfolio-note">累計買入額包含已結算的部位，可能超過起始資金；目前持倉成本才代表仍在持有的投入。${state.buyVolumeHistoryComplete?'':'舊存檔無法還原本版本前已賣出部位的買入額。'} ${state.marketMode==='simulation'?'使用隨機行情計算，不是真實報價或投資建議。':hasUsableMarketQuote()?'行情取自 Binance Spot 的 USDT 報價並近似美元顯示；模擬持倉不是真實交易。':'即時行情尚未取得或已逾期，持倉市值暫時可能使用舊資料；請等待更新後再解讀。'}</p>`;
+  const list=document.getElementById('petList');
+  list.innerHTML=state.pets.length?state.pets.map(pet=>{
+    const p=pnlPct(pet),isUp=p>=0,c=COINS[pet.sym],mood=getMood(pet);
+    return `<div class="pet-row" onclick="openPetModal(${pet.id})"><span>${mood.emoji} ${(pet.rarity??-1)>=0?RARITY_EMOJI[pet.rarity]:''}${pet.isOnChain?'⛓ ':''}${c.emoji} ${c.name}</span><span class="${isUp?'up':'dn'}">${isUp?'+':''}${p.toFixed(1)}%</span></div>`;
+  }).join(''):'<p style="font-size:12px;color:#aaa;">還沒有寵物</p>';
+  populateMintSelect();
+}
+function renderPriceBar() {
+  const isLive=state.marketMode==='live';
+  const quoteUsable=hasUsableMarketQuote();
+  const sourceLabel=isLive?'Binance Spot 即時行情（USDT）':'本機隨機模擬行情';
+  const updated=state.marketMeta.lastUpdatedAt?new Date(state.marketMeta.lastUpdatedAt).toLocaleString('zh-TW'):'尚未更新';
+  const liveStatus=isLive&&!quoteUsable&&state.marketMeta.lastUpdatedAt&&!state.marketMeta.error?'報價已逾期，等待更新':state.marketMeta.status;
+  const status=isLive?`${liveStatus}｜更新時間：${updated}${state.marketMeta.error?'｜'+state.marketMeta.error:''}`:`${state.marketMeta.status}｜每 4 秒變動`;
+  document.getElementById('priceBar').innerHTML=`<span class="price-item"><strong>${sourceLabel}</strong></span><span class="price-item">${status}</span>`+Object.entries(COINS).map(([sym])=>{
+    const stats=state.marketStats[sym];
+    const p=isLive?(Number(stats?.change24h)||0):pctChg(sym),isUp=p>=0,pr=state.prices[sym];
+    const quote=isLive&&!quoteUsable&&!state.marketMeta.lastUpdatedAt?'等待報價':`$${pr.cur.toFixed(sym==='DOGE'?4:2)}${isLive&&!quoteUsable?'（舊報價）':''}`;
+    return `<span class="price-item">${sym}: ${quote} <span class="${isUp?'up':'dn'}">${isLive&&!quoteUsable?'':`${isUp?'+':''}${p.toFixed(2)}%${isLive?' (24h)':''}`}</span></span>`;
+  }).join('');
+  const modeButton=document.getElementById('marketModeBtn');
+  if(modeButton) modeButton.textContent=isLive?'切到模擬行情':'切到即時行情';
+  const sourceStatus=document.getElementById('marketSourceStatus');
+  if(sourceStatus) sourceStatus.textContent=`目前模式：${isLive?'即時行情':'模擬行情'}。狀態：${status}`;
+}
+
+// Modals
+let activePetId=null;
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') document.querySelectorAll('.modal-bg.open').forEach(bg=>closeModal(bg.id));
+});
+function renderBigPet(pet,mood){
+  document.getElementById('pmEmoji').innerHTML=`<span class="pet-big-svg">${buildPetSvg(pet.sym,getStage(pet),pnlPct(pet),pet.rarity??-1)}</span><span title="${mood.label}">${mood.emoji}</span>`;
+}
+
+function openPetModal(id) {
+  activePetId=id;
+  const pet=state.pets.find(p=>p.id==id); if(!pet) return;
+  const c=COINS[pet.sym],st=getStage(pet),pnlP=pnlPct(pet),pnl=pnlAmt(pet),isUp=pnl>=0;
+  const avgCost=pet.qty?pet.cost/pet.qty:0;
+  const marketMove=state.marketMode==='live'?(Number(state.marketStats[pet.sym]?.change24h)||0):pctChg(pet.sym);
+  const progress=evolutionProgress(pet);
+  const mood=getMood(pet);
+  document.getElementById('pmTitle').textContent=(pet.isOnChain?'⛓ ':'')+c.name;
+  renderBigPet(pet,mood);
+  document.getElementById('pmTable').innerHTML=`
+    <tr><td>幣種</td><td>${pet.sym}</td></tr>
+    <tr><td>成長階段</td><td>${STAGES[st]}</td></tr>
+    <tr><td>稀有度</td><td>${(pet.rarity??-1)>=0?RARITY_EMOJI[pet.rarity]+RARITIES[pet.rarity]:'尚未鑑定（鑄造成 NFT 時揭曉）'}</td></tr>
+    <tr><td>目前行情價</td><td id="pmCurrentPrice">$${state.prices[pet.sym].cur.toFixed(pet.sym==='DOGE'?4:2)}</td></tr>
+    <tr><td>持有量</td><td>${pet.qty.toFixed(4)} ${pet.sym}</td></tr>
+    <tr><td>本隻寵物累積投入</td><td>$${pet.cost.toFixed(0)}（起始虛擬資金 ${(pet.cost/state.initialBalance*100).toFixed(1)}%）</td></tr>
+    <tr><td>平均成本</td><td>$${avgCost.toFixed(pet.sym==='DOGE'?4:2)} / ${pet.sym}</td></tr>
+    <tr><td>目前模擬市值</td><td id="pmMarketValue">$${currentValue(pet).toFixed(0)} 模擬美元</td></tr>
+    <tr><td>未實現盈虧</td><td id="pmPnl" class="${isUp?'up':'dn'}">${pnl>=0?'+':''}${pnl.toFixed(0)}（${pnlP.toFixed(1)}%）</td></tr>
+    <tr><td id="pmMarketMoveLabel">${state.marketMode==='live'?'24 小時價格變動':'本次模擬行情變動'}</td><td id="pmMarketMove" class="${marketMove>=0?'up':'dn'}">${marketMove>=0?'+':''}${marketMove.toFixed(2)}%</td></tr>
+    ${pet.isOnChain?`<tr><td>鏈上狀態</td><td>已鑄造 NFT，Token #${pet.chainTokenId}</td></tr>`:''}`;
+  document.getElementById('pmInsight').textContent=`狀態：${mood.label}。表情依個人未實現盈虧呈現；平均成本是累積模擬投入除以持有量。未實現盈虧以目前報價估算，賣出前尚未結算；近期高低點只表示行情位置，不是買賣訊號。`;
+  renderMarketRange(pet.sym);
+  const tradesEl=document.getElementById('pmTrades');
+  tradesEl.replaceChildren();
+  const historyTitle=document.createElement('p');
+  historyTitle.textContent=`最近買入紀錄（共 ${(pet.trades||[]).length} 筆）`;
+  tradesEl.append(historyTitle);
+  const history=document.createElement('ul');
+  history.className='trade-history';
+  [...(pet.trades||[])].slice(-5).reverse().forEach(trade=>{
+    const row=document.createElement('li');
+    row.textContent=`${new Date(trade.at).toLocaleString('zh-TW')}　投入 ${Number(trade.amount).toFixed(0)}　買入 ${Number(trade.qty).toFixed(6)} ${pet.sym}　價格 $${Number(trade.price).toFixed(pet.sym==='DOGE'?4:2)}`;
+    history.append(row);
+  });
+  tradesEl.append(history);
+
+  const evolveResult=document.getElementById('pmEvolveResult');
+  evolveResult.style.display='none'; evolveResult.textContent='';
+  const evolveBtn=document.getElementById('pmEvolveBtn');
+  const evolveInfo=document.getElementById('pmEvolveInfo');
+  if(st>=2){
+    evolveInfo.textContent=`🌳 已達成熟期，養成完畢！累積模擬投入 $${pet.cost.toFixed(0)}（起始資金 ${(pet.cost/state.initialBalance*100).toFixed(1)}%），可以鑄造成 NFT 了。`;
+    evolveBtn.style.display='none';
+  }else{
+    const remaining=Math.max(0,progress.required-pet.cost);
+    const targetShare=EVOLUTION_RATIOS[st+1]*100;
+    const currentShare=pet.cost/state.initialBalance*100;
+    evolveInfo.innerHTML=`累積模擬投入：$${pet.cost.toFixed(0)}（起始資金 ${currentShare.toFixed(1)}%）<br>本階門檻：$${progress.required.toFixed(0)}（起始資金 ${targetShare.toFixed(0)}%）<div class="evolve-progress"><span style="width:${(progress.progress*100).toFixed(0)}%"></span></div>${progress.ready?'已達門檻，可以進化！':`再模擬投入 $${remaining.toFixed(0)} 即可進化。`}`;
+    evolveBtn.style.display='block';
+    evolveBtn.disabled=!progress.ready;
+    evolveBtn.textContent=progress.ready?'✨ 進化':'🔒 累積模擬持倉後解鎖';
+  }
+  openModal('petModal');
+}
+
+function evolvePetManual(){
+  const pet=state.pets.find(p=>p.id==activePetId); if(!pet) return;
+  const resultEl=document.getElementById('pmEvolveResult');
+  const progress=evolutionProgress(pet);
+  if(!progress.ready){
+    resultEl.style.display='block';
+    resultEl.style.color='#e67e22';
+    resultEl.textContent=`還差 $${(progress.required-pet.cost).toFixed(0)} 的模擬投入才能進化。`;
+    return;
+  }
+
+  pet.stage=Math.min(2,getStage(pet)+1);
+  pet.rarity=-1;
+  recordPetForm(pet);
+  const successMessage=`✅ 進化至「${STAGES[pet.stage]}」！稀有度會在鑄造成 NFT 時由合約決定。`;
+
+  save(); renderPets(); renderSidebar();
+  openPetModal(pet.id);
+  resultEl.style.color='#2e7d32';
+  resultEl.textContent=successMessage;
+  resultEl.style.display='block';
+  showToast(`✨ ${COINS[pet.sym].name} 進化至${STAGES[pet.stage]}！`);
+}
+
+// 孵化
+function openBuyModal(defaultSym=null) {
+  document.getElementById('coinGrid').innerHTML=Object.entries(COINS).map(([sym,c])=>
+    `<div class="coin-btn" data-sym="${sym}" onclick="selCoin('${sym}')">`+
+    `<span class="ce">${c.emoji}</span>${sym}<br><small style="color:#888">${c.name}</small></div>`
+  ).join('');
+  document.getElementById('buyAmt').value='';
+  document.getElementById('buyHint').textContent='';
+  document.getElementById('buyErr').classList.remove('show');
+  if(defaultSym && COINS[defaultSym]) selCoin(defaultSym);
+  openModal('buyModal');
+}
+function selCoin(sym) {
+  document.querySelectorAll('.coin-btn').forEach(el=>el.classList.toggle('sel',el.dataset.sym===sym));
+  updateBuyPreview();
+}
+function updateBuyPreview() {
+  const sel=document.querySelector('.coin-btn.sel');
+  const amt=parseFloat(document.getElementById('buyAmt').value);
+  if(!sel||!amt){document.getElementById('buyHint').textContent='';return;}
+  if(state.marketMode==='live'&&!hasUsableMarketQuote()){document.getElementById('buyHint').textContent='等待取得新鮮即時報價；若連線失敗，可切換至模擬行情。';return;}
+  const sym=sel.dataset.sym,price=state.prices[sym].cur,qty=amt/price;
+  const existing=state.pets.find(p=>p.sym===sym);
+  const nextQty=(existing?.qty||0)+qty,nextCost=(existing?.cost||0)+amt;
+  const nextAvg=nextCost/nextQty;
+  const upScenario=price*1.05*nextQty-nextCost;
+  const downScenario=price*0.95*nextQty-nextCost;
+  const formatPnl=value=>`${value>=0?'+':''}$${value.toFixed(0)}`;
+  const existingStage=existing?.stage||0;
+  const nextStage=Math.min(existingStage+1,2);
+  const threshold=evolutionThreshold(nextStage);
+  const left=Math.max(0,threshold-nextCost);
+  const targetShare=EVOLUTION_RATIOS[nextStage]*100;
+  const investedShare=nextCost/state.initialBalance*100;
+  const evolutionText=existingStage>=2?'此寵物已達成熟期，追加投入不會再解鎖進化。':`下一階門檻為 $${threshold.toFixed(0)}（起始資金 ${targetShare.toFixed(0)}%）；${left===0?'加碼後已達門檻':`加碼後距門檻還差 $${left.toFixed(0)}`}`;
+  document.getElementById('buyHint').textContent=`可取得 ${qty.toFixed(6)} ${sym}。${existing?'加碼後':'買入後'}平均成本約 $${nextAvg.toFixed(sym==='DOGE'?4:2)}；本隻寵物累積投入將為 $${nextCost.toFixed(0)}（起始虛擬資金 ${investedShare.toFixed(1)}%）。${evolutionText}。若價格從現在上漲／下跌 5%，持倉模擬盈虧約為 ${formatPnl(upScenario)} / ${formatPnl(downScenario)}。情境僅供比較，不是價格預測。`;
+}
+function confirmBuy() {
+  const errEl=document.getElementById('buyErr');
+  errEl.classList.remove('show'); errEl.textContent='';
+  const sel=document.querySelector('.coin-btn.sel');
+  const amt=parseFloat(document.getElementById('buyAmt').value);
+  const totalBalance = state.balance;
+  if(state.marketMode==='live'&&!hasUsableMarketQuote()){errEl.textContent='❌ 即時報價尚未取得、正在更新或已逾期，請稍後重試或切換模擬行情';errEl.classList.add('show');return;}
+  if(!sel){ errEl.textContent='❌ 請選擇幣種'; errEl.classList.add('show'); return; }
+  if(!amt||amt<100){ errEl.textContent='❌ 最低模擬投入 $100'; errEl.classList.add('show'); return; }
+  if(amt>totalBalance){ errEl.textContent='❌ 遊戲虛擬幣餘額不足'; errEl.classList.add('show'); return; }
+  const sym=sel.dataset.sym,sc=document.getElementById('scene');
+  const W=sc.offsetWidth||600,H=sc.offsetHeight||500,price=state.prices[sym].cur,qty=amt/price,now=Date.now();
+  let pet=state.pets.find(p=>p.sym===sym);
+  if(pet){
+    pet.qty+=qty;
+    pet.cost+=amt;
+    pet.costPrice=pet.cost/pet.qty;
+    if(!Array.isArray(pet.trades)) pet.trades=[];
+    pet.trades.push({type:'buy',amount:amt,qty,price,at:now});
+  }else{
+    pet={id:state.nextId++,sym,qty,costPrice:price,cost:amt,bornAt:now,stage:0,rarity:-1,trades:[{type:'buy',amount:amt,qty,price,at:now}],x:Math.random()*(W-100)+30,y:Math.random()*(H-120)+30};
+    state.pets.push(pet);
+  }
+  recordPetForm(pet);
+  state.balance-=amt; state.totalBuyVolume+=amt; save(); closeModal('buyModal'); renderPets(); renderSidebar();
+  showToast(`${COINS[sym].name}${pet.trades.length>1?'加碼成功！':'孵化成功！'}`);
+}
+
+function openSellModal() {
+  const sel=document.getElementById('sellSel');
+  sel.innerHTML='<option value="">-- 選擇 --</option>';
+  state.pets.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=`${COINS[p.sym].emoji} ${COINS[p.sym].name} (${p.sym})`;sel.appendChild(o);});
+  document.getElementById('sellHint').textContent='';
+  document.getElementById('sellErr').classList.remove('show');
+  openModal('sellModal');
+}
+function updateSellPreview() {
+  const pet=state.pets.find(p=>p.id==document.getElementById('sellSel').value);
+  if(!pet){document.getElementById('sellHint').textContent='';return;}
+  if(state.marketMode==='live'&&!hasUsableMarketQuote()){document.getElementById('sellHint').textContent='即時報價尚未更新或已逾期，目前不提供結算估值。';return;}
+  const val=state.prices[pet.sym].cur*pet.qty,pnl=val-pet.cost;
+  const nftNote=pet.isOnChain?`\n⛓ 這隻寵物已鑄造為 NFT${pet.chainTokenId&&pet.chainTokenId!=='?'?` #${pet.chainTokenId}`:''}；賣出只結算本機模擬持倉，NFT 仍保留在你的錢包中。`:'';
+  document.getElementById('sellHint').textContent=`模擬市值 $${val.toFixed(0)}，結算後已實現盈虧 ${pnl>=0?'+':''}$${pnl.toFixed(0)}${nftNote}`;
+}
+function confirmSell() {
+  const errEl=document.getElementById('sellErr');
+  errEl.classList.remove('show'); errEl.textContent='';
+  if(state.marketMode==='live'&&!hasUsableMarketQuote()){errEl.textContent='❌ 即時報價尚未取得、正在更新或已逾期，請稍後重試或切換模擬行情';errEl.classList.add('show');return;}
+  const id=document.getElementById('sellSel').value;
+  if(!id){ errEl.textContent='❌ 請選擇要賣出的寵物'; errEl.classList.add('show'); return; }
+  const idx=state.pets.findIndex(p=>p.id==id); if(idx<0) return;
+  if(mintInFlight&&mintingPetId==id){ errEl.textContent='❌ 這隻寵物正在鑄造中，請等交易完成後再賣出'; errEl.classList.add('show'); return; }
+  const pet=state.pets[idx],val=currentValue(pet),realized=val-pet.cost;
+  state.realizedPnl+=realized;
+  state.balance+=val; state.pets.splice(idx,1);
+  save(); closeModal('sellModal'); renderSidebar(); renderPets();
+  showToast(`模擬結算完成，已實現盈虧 ${realized>=0?'+':''}$${Math.round(realized)}${pet.isOnChain?'（NFT 仍保留在錢包）':''}`);
+}
+function quickSell(){closeModal('petModal');openSellModal();setTimeout(()=>{document.getElementById('sellSel').value=activePetId;updateSellPreview();},50);}
+function addToPet(){
+  const pet=state.pets.find(p=>p.id==activePetId); if(!pet) return;
+  closeModal('petModal');
+  openBuyModal(pet.sym);
+}
+
+// Toast
+let toastT;
+function showToast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// Loop
+let lastTick=0;
+function loop(ts){
+  movePets();
+  if(state.marketMode==='simulation'&&ts-lastTick>4000){
+    tickPrices(); renderPriceBar(); renderPets(); renderSidebar();
+    refreshOpenPetModal();
+    save(); lastTick=ts;
+  }
+  requestAnimationFrame(loop);
+}
+function init(){
+  document.getElementById('mintFeeHint').textContent=`費用：${MINT_FEE_ETH} ETH（Sepolia 測試網）`;
+  load(); initPrices();
+  if(state.marketMode==='live') state.marketMeta={...state.marketMeta,status:'正在連線至行情來源',liveReady:false};
+  else state.marketMeta={...state.marketMeta,status:'模擬行情運作中',liveReady:true,source:'本機隨機模擬'};
+  renderPriceBar(); renderPets(); renderSidebar();
+  if(state.marketMode==='live'){
+    refreshLiveMarket(true);
+    startMarketPolling();
+  }
+  requestAnimationFrame(loop);
+  autoReconnectWallet();
+}
+window.addEventListener('load',init);
+
+// ── Web3 ──────────────────────────────────────────────────────
+// ★ 換成你 Remix 部署的合約地址 ★
+const CONTRACT_ADDRESS='0xfEd668F167aB8BC8700123c6399f19526F2EDd97';
+const SEPOLIA_CHAIN_ID=11155111n;
+const ABI=[
+  "function contractVersion() external pure returns (uint256)",
+  "function mintPet(string calldata symbol) external payable returns (uint256)",
+  "function getPet(uint256 tokenId) external view returns (tuple(string symbol, uint8 stage, uint8 rarity, uint256 bornAt))",
+  "event PetMinted(uint256 tokenId, address owner, string symbol, uint8 stage, uint8 rarity)"
+];
+const RARITY=['普通','稀有','史詩','隱藏'];
+// 鑄造費需與合約的收費一致，否則交易會被 revert
+const MINT_FEE_ETH='0.001';
+let provider,signer,contract;
+let walletListenersAttached=false;
+let contractV2Ready=false;
+// 鑄造交易進行中時鎖住模式切換與該寵物的賣出，避免上鏈標記寫到錯的資料
+let mintInFlight=false,mintingPetId=null;
+
+// 頁面載入（例如切換網路後自動重新整理）時，若網站已被授權，就不跳視窗直接恢復連線
+async function autoReconnectWallet(){
+  if(!window.ethereum) return;
+  try{
+    const accounts=await window.ethereum.request({method:'eth_accounts'});
+    if(accounts.length) connectWallet();
+  }catch{}
+}
+
+function attachWalletListeners(){
+  if(walletListenersAttached || !window.ethereum?.on) return;
+  window.ethereum.on('accountsChanged',accounts=>{
+    if(!accounts.length){ location.reload(); return; }
+    connectWallet();
+  });
+  window.ethereum.on('chainChanged',()=>location.reload());
+  walletListenersAttached=true;
+}
+
+async function requireSepolia(){
+  if(!provider || !signer) throw new Error('請先連接 MetaMask');
+  const network=await provider.getNetwork();
+  if(network.chainId!==SEPOLIA_CHAIN_ID){
+    contract=null;
+    throw new Error('網路錯誤，請在 MetaMask 切換至 Sepolia 測試網');
+  }
+  if(!contract) throw new Error('合約尚未就緒，請重新連接 MetaMask');
+}
+
+async function requireCanonicalContractV2(){
+  try{
+    const version=await contract.contractVersion();
+    if(Number(version)!==2) throw new Error('合約版本不相容，請部署 CryptoPetNFT V2 並更新合約地址');
+  }catch(error){
+    if(error.message?.includes('合約版本不相容')) throw error;
+    throw new Error('目前合約尚未支援成熟寵物鑄造規格；請部署 CryptoPetNFT V2 並更新合約地址');
+  }
+}
+
+async function connectWallet(){
+  const errEl=document.getElementById('connectErr');
+  errEl.classList.remove('show'); errEl.textContent='';
+  if(!window.ethereum){
+    errEl.textContent='❌ 未偵測到 MetaMask，請先安裝';
+    errEl.classList.add('show');
+    window.open('https://metamask.io/','_blank');
+    return;
+  }
+  try{
+    attachWalletListeners();
+    const accs=await window.ethereum.request({method:'eth_requestAccounts'});
+    if(!accs.length) throw new Error('沒有可用的錢包帳戶');
+    provider=new ethers.BrowserProvider(window.ethereum);
+    signer=await provider.getSigner();
+    const short=accs[0].slice(0,6)+'...'+accs[0].slice(-4);
+    document.getElementById('btnConnect').textContent='已連接 '+short;
+    document.getElementById('walletInfo').textContent='';
+    const net=await provider.getNetwork();
+    if(net.chainId!==SEPOLIA_CHAIN_ID){
+      contract=null;
+      contractV2Ready=false;
+      document.getElementById('chainInfo').textContent=`${short} @ ${net.name} (${net.chainId})`;
+      document.getElementById('chainNotConn').textContent='請在 MetaMask 切換至 Sepolia 測試網後重新連接';
+      document.getElementById('chainNotConn').style.display='block';
+      document.getElementById('chainPanel').style.display='none';
+      document.getElementById('connectErr').textContent='❌ 目前網路不是 Sepolia；鏈上操作已停用';
+      document.getElementById('connectErr').classList.add('show');
+      document.getElementById('ethBalDisplay').textContent='請切換網路';
+      return;
+    }
+    contract=new ethers.Contract(CONTRACT_ADDRESS,ABI,signer);
+    let contractVersion=0;
+    try{contractVersion=Number(await contract.contractVersion());}catch{}
+    contractV2Ready=contractVersion===2;
+    const mintButton=document.getElementById('btnMint');
+    mintButton.disabled=!contractV2Ready||mintInFlight;
+    document.getElementById('chainInfo').textContent=`${short} @ Sepolia (${net.chainId})${contractVersion===2?'｜CryptoPet V2':'｜合約版本不相容，需部署 V2'}`;
+    document.getElementById('chainNotConn').textContent='請先連接MetaMask';
+    document.getElementById('chainNotConn').style.display='none';
+    document.getElementById('chainPanel').style.display='block';
+    if(contractVersion!==2){
+      document.getElementById('connectErr').textContent='⚠️ 目前地址不是 CryptoPet V2；請部署 V2 並更新合約地址後再鑄造';
+      document.getElementById('connectErr').classList.add('show');
+    }
+    await updateEthBalance(accs[0]);
+    showToast('MetaMask 連接成功');
+  }catch(e){
+    contract=null;
+    contractV2Ready=false;
+    errEl.textContent='❌ 連接失敗：'+(e.message||e);
+    errEl.classList.add('show');
+  }
+}
+
+async function updateEthBalance(address){
+  try{
+    const bal=await provider.getBalance(address);
+    const ethNum=parseFloat(ethers.formatEther(bal));
+    const el=document.getElementById('ethBalDisplay');
+    el.textContent=ethNum.toFixed(4)+' ETH';
+    el.style.color='#e67e22';
+
+    document.getElementById('rateHint').style.display='block';
+  }catch(e){
+    document.getElementById('ethBalDisplay').textContent='讀取失敗';
+  }
+}
+
+function setBusy(btnId,label,busy){const b=document.getElementById(btnId);b.disabled=busy;b.textContent=busy?'處理中...':label;}
+
+function populateMintSelect(){
+  const sel=document.getElementById('mintSelect');
+  if(!sel) return;
+  const eligible=state.pets.filter(p=>!p.isOnChain && getStage(p)===2);
+  // 清單沒變就不重建，否則模擬模式每 4 秒重繪會把展開中的下拉選單關掉
+  const key=state.marketMode+'|'+eligible.map(p=>p.id).join(',');
+  if(sel.dataset.key===key){ updateMintPreview(); return; }
+  sel.dataset.key=key;
+  const current=sel.value;
+  sel.innerHTML='<option value="">— 選擇已成熟的寵物 —</option>';
+  eligible.forEach(p=>{
+    const opt=document.createElement('option');
+    opt.value=p.id;
+    opt.textContent=`${COINS[p.sym].emoji} ${COINS[p.sym].name}（${p.sym}）`;
+    sel.appendChild(opt);
+  });
+  if([...sel.options].some(o=>o.value===current)) sel.value=current;
+  updateMintPreview();
+}
+
+function updateMintPreview(){
+  const sel=document.getElementById('mintSelect');
+  const preview=document.getElementById('mintPreview');
+  if(!sel || !preview) return;
+  if(!sel.value){ preview.textContent='只有養到成熟期 🌳 的寵物才能鑄造成 NFT'; return; }
+  const pet=state.pets.find(p=>p.id==Number(sel.value));
+  if(!pet){ preview.textContent=''; return; }
+  preview.textContent=`即將把這隻 ${COINS[pet.sym].name} 寫入區塊鏈，鑄造後永久屬於你的錢包`;
+}
+
+// 依鑄造當下的模式與 id 找回寵物；即使畫面上的 state.pets 已換過，也能寫回正確的存檔
+function findPetForMint(mode,petId){
+  if(state.marketMode===mode) return state.pets.find(p=>p.id==petId)||null;
+  return state.portfolios?.[mode]?.pets?.find(p=>p.id==petId)||null;
+}
+
+async function mintPetOnChain(){
+  const res=document.getElementById('mintRes');
+  if(mintInFlight) return;
+  try{ await requireSepolia(); await requireCanonicalContractV2(); }
+  catch(e){ res.className='tx-box show err'; res.textContent='❌ '+e.message; return; }
+  const selId=document.getElementById('mintSelect').value;
+  if(!selId){ res.className='tx-box show err'; res.textContent='❌ 請先選擇一隻已養到成熟期的寵物'; return; }
+  const pet=state.pets.find(p=>p.id==Number(selId));
+  if(!pet){ res.className='tx-box show err'; res.textContent='❌ 找不到這隻寵物，請重新選擇'; return; }
+  if(pet.isOnChain){ res.className='tx-box show err'; res.textContent='❌ 這隻寵物已經鑄造過了'; return; }
+  const sym=pet.sym,mintMode=state.marketMode,petId=pet.id;
+  mintInFlight=true; mintingPetId=petId;
+  setBusy('btnMint','鑄造',true);
+  res.className='tx-box show'; res.textContent='等待MetaMask確認...';
+  try{
+    const tx=await contract.mintPet(sym,{value:ethers.parseEther(MINT_FEE_ETH)});
+    res.textContent='交易送出，確認中...';
+    const rc=await tx.wait();
+    if(!rc||rc.status!==1) throw new Error('交易未成功（已被合約拒絕）');
+    let tid='?',chainStage=null,chainRarity=null;
+    for(const log of rc.logs){try{const p=contract.interface.parseLog(log);if(p?.name==='PetMinted'){tid=p.args.tokenId.toString();chainStage=Number(p.args.stage);chainRarity=Number(p.args.rarity);break;}}catch{}}
+    const eventValid=tid!=='?'&&chainStage===2&&Number.isInteger(chainRarity)&&chainRarity>=0&&chainRarity<=3;
+    // 交易已成功上鏈，不論事件能否解析都先標記，避免使用者重複鑄造、重複付費
+    const target=findPetForMint(mintMode,petId);
+    if(target){
+      target.isOnChain=true;
+      target.chainTokenId=tid;
+      target.chainTxHash=tx.hash;
+      if(eventValid){ target.chainStage=chainStage; target.rarity=chainRarity; }
+    }
+    save();
+    renderPets();
+    renderSidebar();
+    res.className=eventValid?'tx-box show ok':'tx-box show err';
+    res.replaceChildren();
+    res.append(document.createTextNode(eventValid
+      ?`✅ 鑄造成功！Token ID: ${tid}　幣種: ${sym} `
+      :`⚠️ 交易已成功上鏈，但無法解析 PetMinted 事件，Token ID 未知；已將寵物標記為已上鏈以免重複鑄造。請到 Etherscan 查看 Token ID `));
+    const txLink=document.createElement('a');
+    txLink.href=`https://sepolia.etherscan.io/tx/${tx.hash}`;
+    txLink.target='_blank';
+    txLink.rel='noopener noreferrer';
+    txLink.textContent='Etherscan ↗';
+    res.append(txLink);
+    showToast(eventValid?`🎉 ${COINS[sym].name} 正式上鏈成為 NFT！Token #${tid}`:'交易已上鏈，請到 Etherscan 確認 Token ID');
+    updateEthBalance(await signer.getAddress());
+  }catch(e){
+    res.className='tx-box show err';
+    res.textContent='❌ 失敗：'+(e.reason||e.shortMessage||e.message||'交易失敗');
+  }finally{
+    mintInFlight=false; mintingPetId=null;
+    setBusy('btnMint','鑄造',false);
+    document.getElementById('btnMint').disabled=!contractV2Ready;
+  }
+}
+
+async function queryPetOnChain(){
+  const res=document.getElementById('queryRes');
+  try{ await requireSepolia(); }
+  catch(e){ res.className='tx-box show err'; res.textContent='❌ '+e.message; return; }
+  const tid=document.getElementById('queryTid').value.trim();
+  if(!/^[1-9]\d*$/.test(tid)){ res.className='tx-box show err'; res.textContent='❌ Token ID 請輸入大於 0 的整數'; return; }
+  setBusy('btnQuery','查詢',true);
+  res.className='tx-box show'; res.textContent='查詢中...';
+  try{
+    const pet=await contract.getPet(BigInt(tid));
+    if(Number(pet.bornAt) === 0){
+      res.className='tx-box show err';
+      res.textContent=`❌ Token #${tid} 不存在，請確認 Token ID 是否正確（尚未被鑄造）`;
+      setBusy('btnQuery','查詢',false);
+      return;
+    }
+    const born=new Date(Number(pet.bornAt)*1000).toLocaleString('zh-TW');
+    const stage=Number(pet.stage),rarity=Number(pet.rarity);
+    res.className='tx-box show ok';
+    res.textContent=`✅ Token #${tid}\n幣種：${pet.symbol}\n鏈上階段：${STAGES[stage]??`未知 (${stage})`}\n鏈上稀有度：${RARITY[rarity]??`未知 (${rarity})`}\n鑄造時間：${born}\n本地養成資料與合約資料分開保存。`;
+    showToast('查詢成功');
+  }catch(e){
+    res.className='tx-box show err';
+    res.textContent='❌ 查詢失敗：'+(e.reason||e.message||'Token 不存在');
+  }
+  setBusy('btnQuery','查詢',false);
+}
+</script>
+</body>
+</html>
+
